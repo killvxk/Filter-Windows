@@ -52,7 +52,18 @@ namespace CitadelService.Services
 
             string appVerStr = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
             System.Reflection.Assembly assembly = System.Reflection.Assembly.GetExecutingAssembly();
-            appVerStr += "." + System.Reflection.AssemblyName.GetAssemblyName(assembly.Location).Version.ToString();
+
+            string name = null;
+            try
+            {
+                name = "." + System.Reflection.AssemblyName.GetAssemblyName(assembly.Location).Version.ToString();
+            }
+            catch (System.IO.FileNotFoundException e)
+            {
+                name = ".sentinel_unknown_version";
+            }
+
+            appVerStr += name;
 
             bool createdNew;
             InstanceMutex = new Mutex(true, string.Format(@"Global\{0}", appVerStr.Replace(" ", "")), out createdNew);

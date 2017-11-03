@@ -72,6 +72,8 @@ namespace Te.Citadel.Services
             m_baseDirectory = Path.GetDirectoryName(System.Reflection.Assembly.GetAssembly(typeof(BaseProtectiveService)).Location);
             m_processBinaryAbsPath = Path.Combine(m_baseDirectory, string.Format("{0}.exe", processNameToObserve));
 
+            System.IO.File.AppendAllText("test.log", string.Format("process binary abs path = {0}\n", m_processBinaryAbsPath));
+
             m_mutexName = string.Join("", m_processBinaryAbsPath.Where(x => !s_toRemoveFromPath.Contains(x)).ToList());
 
             m_isTargetService = isService;

@@ -13,19 +13,29 @@
         Id="*"
         Name="CloudVeil For Windows"
         Language="1033"
+        Codepage="1252"
         Manufacturer="CloudVeil"
         UpgradeCode="{57058EEC-162C-4D48-993E-4AE6095F66CA}"
         Version="1.5.0">
         
 		<Package
+            Id="*"
             Comments="Web Content Filter"
             InstallerVersion="200"
             Compressed="yes"
             InstallScope="perMachine"
             Keywords="Filter" Languages="1033" Manufacturer="CloudVeil"
+            SummaryCodepage="1252"
             />
 
-		<MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
+        <UIRef Id="WixUI_InstallDir" />
+
+        <Property Id="ARPPRODUCTICON" Value="InstallerIcon.ico" />
+        <Property Id="WIXUI_INSTALLDIR" Value="INSTALLFOLDER" />
+        <WixVariable Id="WixUILicenseRtf" Value="$(var.SolutionDir)MOZILLA_PUBLIC_LICENSE.rtf" />
+        <!--<WixVariable Id="WixUIDialogBmp" Value="$(var.SolutionDir)CloudVeil-InstallerBackground.bmp" />-->
+        
+        <MajorUpgrade DowngradeErrorMessage="A newer version of [ProductName] is already installed." />
 		<MediaTemplate EmbedCab="yes"/>
 
         <PropertyRef Id="WIX_IS_NETFRAMEWORK_462_OR_LATER_INSTALLED"/>
@@ -35,6 +45,8 @@
 
         <Feature Id="ProductFeature" Title="CloudVeil Installer" Level="1">
             <ComponentGroupRef Id="ProductComponents"/>
+            <ComponentGroupRef Id="x86Components"/>
+            <ComponentGroupRef Id="x64Components"/>
         </Feature>
 
         <!--<DirectoryRef Id="ApplicationProgramsFolder">
@@ -47,6 +59,7 @@
         </DirectoryRef>-->
 
         <Icon Id="CloudVeil.exe" SourceFile="$(var.CitadelGUI x86.TargetPath)"/>
+        <Icon Id="InstallerIcon.ico" SourceFile="$(var.CitadelGUI x86.ProjectDir)appicon.ico" />
 	</Product>
 
 	<Fragment>
@@ -71,34 +84,34 @@
 		</Directory>
         
 	</Fragment>
-
+    
     <Fragment>
         <ComponentGroup Id="x64Components" Directory="x64Dir">
-            <Component Id="C__11F01C92F4EC4372B38108A3C971764B" Guid="{E2935396-B64E-ED4B-6A9C-814097657EEF}" Win64="yes">
-                <File Id="_11F01C92F4EC4372B38108A3C971764B" Name="WinDivert.dll" KeyPath="yes" ShortName="WINDIV~1.DLL" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\WinDivert.dll" />
+            <Component Id="WinDivert_x64" Guid="{E2935396-B64E-ED4B-6A9C-814097657EEF}" Win64="$(var.Win64)">
+                <File Id="WinDivertDll_x64" Name="WinDivert.dll" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\WinDivert.dll" />
             </Component>
-            <Component Id="C__7144E9297DA74AD08EA5683327CB52BE" Guid="{B13C43B6-AD76-73FA-F70C-FEE5FF60522A}" Win64="yes">
-                <File Id="_7144E9297DA74AD08EA5683327CB52BE" Name="SQLite.Interop.dll" KeyPath="yes" ShortName="SQLITE~2.DLL" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\SQLite.Interop.dll" />
+            <Component Id="SQLiteInterop_x64" Guid="{B13C43B6-AD76-73FA-F70C-FEE5FF60522A}" Win64="$(var.Win64)">
+                <File Id="SQLiteInteropDll_x64" Name="SQLite.Interop.dll" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\SQLite.Interop.dll" />
             </Component>
-            <Component Id="C__39F406242823426BB4BBC846C4BE4A71" Guid="{9B1EA0FD-2636-D67B-DA5A-7020CEAAA3A7}" Win64="$(var.Win64)">
-                <File Id="_39F406242823426BB4BBC846C4BE4A71" Name="WinDivert64.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\WinDivert64.sys" />
+            <Component Id="WinDivert64_x64" Guid="{9B1EA0FD-2636-D67B-DA5A-7020CEAAA3A7}" Win64="$(var.Win64)">
+                <File Id="WinDivert64Sys_x64" Name="WinDivert64.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x64\WinDivert64.sys" />
             </Component>
         </ComponentGroup>
     </Fragment>
 
     <Fragment>
         <ComponentGroup Id="x86Components" Directory="x86Dir">
-            <Component Id="C__5352D93B36294E40AF84F9A6968167FD" Guid="{E88F97A5-E7AA-BD06-831D-DEECDB901024}" Win64="yes">
-                <File Id="_5352D93B36294E40AF84F9A6968167FD" Name="SQLite.Interop.dll" KeyPath="yes" DiskId="1" Source="C:\git\CloudVeil-bin\File\_5352D93B36294E40AF84F9A6968167FD" />
+            <Component Id="SQLiteInterop_x86" Guid="{E88F97A5-E7AA-BD06-831D-DEECDB901024}" Win64="$(var.Win64)">
+                <File Id="SQLiteInteropDll_x86" Name="SQLite.Interop.dll" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\SQLite.Interop.dll" />
             </Component>
-            <Component Id="C__B012FE3798124C649F181C01D4DCDFA5" Guid="{DEE9EA06-5B3A-65EF-C9C2-D294935CC2ED}" Win64="yes">
-                <File Id="_B012FE3798124C649F181C01D4DCDFA5" Name="WinDivert.dll" KeyPath="yes" DiskId="1" Source="C:\git\CloudVeil-bin\File\_B012FE3798124C649F181C01D4DCDFA5" />
+            <Component Id="WinDivert_x86" Guid="{DEE9EA06-5B3A-65EF-C9C2-D294935CC2ED}" Win64="$(var.Win64)">
+                <File Id="WinDivert_x64" Name="WinDivert.dll" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\WinDivert.dll" />
             </Component>
-            <Component Id="C__39F406242823426BB4BBC846C4BE4A71" Guid="{2BEF883C-7A8B-423E-92CB-C893529670A4}" Win64="$(var.Win64)">
-                <File Id="_39F406242823426BB4BBC846C4BE4A71" Name="WinDivert64.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\WinDivert64.sys" />
+            <Component Id="WinDivert64_x86" Guid="{2BEF883C-7A8B-423E-92CB-C893529670A4}" Win64="$(var.Win64)">
+                <File Id="WinDivert64Sys_x86" Name="WinDivert64.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\WinDivert64.sys" />
             </Component>
-            <Component Id="C__50E6722D24DA498493B852624B9B563B" Guid="{B14B24A9-5976-2AA8-37C7-740D40FB5E60}" Win64="$(var.Win64)">
-                <File Id="_50E6722D24DA498493B852624B9B563B" Name="WinDivert32.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\WinDivert32.sys" />
+            <Component Id="WinDivert32_x86" Guid="{B14B24A9-5976-2AA8-37C7-740D40FB5E60}" Win64="$(var.Win64)">
+                <File Id="WinDivert32Sys_x86" Name="WinDivert32.sys" KeyPath="yes" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)x86\WinDivert32.sys" />
             </Component>
         </ComponentGroup>
     </Fragment>
@@ -391,7 +404,19 @@
                 <File Id="_A0A132F2C00AA0188FDE3D4187E7C5B5" Name="MahApps.Metro.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="_A0A132F2C00AA0188FDE3D4187E7C5B5" AssemblyApplication="_A0A132F2C00AA0188FDE3D4187E7C5B5" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)MahApps.Metro.dll" />
             </Component>
             <Component Id="C__A5581C50559765F4709E97BE8E418EEC" Guid="{D7BB1FDD-B201-7A93-4E48-E7E40AA988FA}" Win64="$(var.Win64)">
-                <File Id="_A5581C50559765F4709E97BE8E418EEC" Name="FilterServiceProvider.exe" KeyPath="yes" Assembly=".net" AssemblyManifest="_A5581C50559765F4709E97BE8E418EEC" AssemblyApplication="_A5581C50559765F4709E97BE8E418EEC" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)FilterServiceProvider.exe" />
+                <File Id="FilterServiceProviderExe" Name="FilterServiceProvider.exe" KeyPath="yes" Assembly=".net" AssemblyManifest="FilterServiceProviderExe" AssemblyApplication="FilterServiceProviderExe" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)FilterServiceProvider.exe" />
+                <ServiceInstall
+                    Id="FilterServiceProviderInstaller"
+                    Type="ownProcess"
+                    Name="FilterService"
+                    DisplayName="CloudVeil Filtering Service"
+                    Description="Web content Filter"
+                    Start="auto"
+                    Account="[SERVICEACCOUNT]"
+                    Password="[SERVICEPASSWORD]"
+                    ErrorControl="normal"
+                    />
+                <ServiceControl Id="ServiceStart" Start="install" Stop="both" Remove="uninstall" Name="FilterService" Wait="yes" />
             </Component>
             <Component Id="C__A8B174F9271A993E1381E8159F84BE51" Guid="{FCFB0A03-1AC5-9CB4-82B6-DBCFD6845952}" Win64="$(var.Win64)">
                 <File Id="_A8B174F9271A993E1381E8159F84BE51" Name="System.Reflection.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="_A8B174F9271A993E1381E8159F84BE51" AssemblyApplication="_A8B174F9271A993E1381E8159F84BE51" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)System.Reflection.dll" />
@@ -630,7 +655,13 @@
             <Component Id="SystemThreadingThreadPool" Guid="{4BFC5CCA-0556-41C1-A29C-D58D70E0C1FF}" Win64="$(var.Win64)">
                 <File Id="SystemThreadingThreadPoolDll" Name="System.Threading.ThreadPool.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="SystemThreadingThreadPoolDll" AssemblyApplication="SystemThreadingThreadPoolDll" Source="$(var.CitadelGUI x86.TargetDir)System.Threading.ThreadPool.dll"/>
             </Component>
-
+            <Component Id="SystemCollectionsNonGeneric" Guid="{CCCCAFD1-8308-4633-A29D-B93D9BF32DA4}" Win64="$(var.Win64)">
+                <File Id="SystemCollectionsNonGenericDll" Name="System.Collections.NonGeneric.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="SystemCollectionsNonGenericDll" AssemblyApplication="SystemCollectionsNonGenericDll" Source="$(var.CitadelGUI x86.TargetDir)System.Collections.NonGeneric.dll" />
+            </Component>
+            <Component Id="SystemCollectionsSpecialized" Guid="{87C2730C-5489-4E07-AAD7-EF0DF2B33F9F}" Win64="$(var.Win64)">
+                <File Id="SystemCollectionsSpecializedDll" Name="System.Collections.Specialized.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="SystemCollectionsSpecializedDll" AssemblyApplication="SystemCollectionsSpecializedDll" Source="$(var.CitadelGUI x86.TargetDir)System.Collections.Specialized.dll" />
+            </Component>
+            
             <!--<Component Id="C__AF991B2D236A91D50FD47F12D4D75032" Guid="{1C97C37F-EE04-B9D0-69CF-EC6B1D45090C}" Win64="$(var.Win64)">
                 <File Id="_AF991B2D236A91D50FD47F12D4D75032" Name="Interop.NetFwTypeLib.dll" KeyPath="yes" Assembly=".net" AssemblyManifest="_AF991B2D236A91D50FD47F12D4D75032" AssemblyApplication="_AF991B2D236A91D50FD47F12D4D75032" DiskId="1" Source="$(var.CitadelGUI x86.TargetDir)Interop.NetFwTypeLib.dll" />
             </Component>
