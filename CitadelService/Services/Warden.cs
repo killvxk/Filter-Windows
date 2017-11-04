@@ -55,26 +55,19 @@ namespace CitadelService.Services
 
             System.IO.File.AppendAllText("test.log", string.Format("Our assembly location is {0}\n", assembly.Location));
 
-            try
-            {
+            //try
+            //{
                 string name = "." + System.Reflection.AssemblyName.GetAssemblyName(assembly.Location).Version.ToString(); // OFFENDING LINE RIGHT HERE! Causes FileNotFoundException
                 appVerStr += name;
-            }
-            catch (Exception ex)
+            //}
+            /*catch (Exception ex)
             {
                 appVerStr += ".warden_unknown_version";
                 System.IO.File.AppendAllText("test.log", string.Format("exception occurred {0}\n", ex.GetType().Name));
-            }
+            }*/
 
             bool createdNew;
-            try
-            {
-                InstanceMutex = new Mutex(true, string.Format(@"Global\{0}", appVerStr.Replace(" ", "")), out createdNew); // Looks like handling this prevents Warden.exe from crashing?
-            }
-            catch (Exception ex)
-            {
-                System.IO.File.AppendAllText("test.log", string.Format("exception occurred while creating instance mutex {0}\n", ex.GetType().Name));
-            }
+            InstanceMutex = new Mutex(true, string.Format(@"Global\{0}", appVerStr.Replace(" ", "")), out createdNew); // Looks like handling this prevents Warden.exe from crashing?
 
             //try
             //{
