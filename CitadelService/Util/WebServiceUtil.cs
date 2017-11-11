@@ -7,6 +7,7 @@
 
 using Citadel.Core.Extensions;
 using Citadel.Core.Windows.Util.Net;
+using CitadelService.Data.Models;
 using Microsoft.Win32;
 using NLog;
 using System;
@@ -289,27 +290,46 @@ namespace Citadel.Core.Windows.Util
             }
         }
 
+        /// <summary>
+        /// These *Test variables are loaded from CommonApplicationData/CloudVeil/testing-urls.txt if it exists. Do not include trailing slashes.
+        /// 
+        /// 
+        /// LookupUriApiPath=https://test.example.org
+        /// ServiceProviderApiPath=https://test.example.org/citadel
+        /// ServiceProviderUnblockRequestPath=https://test.example.org/unblock_request/new_request
+        /// 
+        /// If you want defaults for any of the above options, you can leave it out of the file.
+        /// 
+        /// To all malicious users browsing the source code: Stop. now. Thank you.
+        /// </summary>
+        private string lookupUriApiPathTest = null;
+
+        /// <summary>
+        /// This is used to look up information about a URL. Used by the block page.
+        /// </summary>
         public string LookupUriApiPath
         {
             get
             {
-                return "https://manage.cloudveil.org";
+                return lookupUriApiPathTest ?? "https://manage.cloudveil.org";
             }
         }
 
+        private string serviceProviderApiPathTest = null;
         public string ServiceProviderApiPath
         {
             get
             {
-                return "https://manage.cloudveil.org/citadel";
+                return serviceProviderApiPathTest ?? "https://manage.cloudveil.org/citadel";
             }
         }
 
+        private string serviceProviderUnblockRequestPathTest = null;
         public string ServiceProviderUnblockRequestPath
         {
             get
             {
-                return "https://manage.cloudveil.org/unblock_request/new_request";
+                return serviceProviderUnblockRequestPathTest ?? "https://manage.cloudveil.org/unblock_request/new_request";
             }
         }
 
@@ -339,6 +359,64 @@ namespace Citadel.Core.Windows.Util
         private WebServiceUtil()
         {
             m_logger = LoggerUtil.GetAppWideLogger();
+        }
+
+        /// <summary>
+        /// Loads URLs for redirecting our requests to a test server. Loads from %programdata%\CloudVeil\testing-urls.txt
+        /// </summary>
+        public void LoadTestingUrls()
+        {
+            try
+            {
+                string testingUrlsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"CloudVeil\testing-urls.txt");
+
+                if (!File.Exists(testingUrlsPath))
+                {
+                    return;
+                }
+                else
+                {
+                    m_logger.Info("Found testing-urls.txt.");
+                }
+
+                using (Stream stream = File.Open(testingUrlsPath, FileMode.Open))
+                {
+                    StreamReader reader = new StreamReader(stream);
+
+                    string line = null;
+                    while ((line = reader.ReadLine()) != null)
+                    {
+                        string[] keyValue = line.Split(new char[] { '=' }, 2);
+
+                        switch (keyValue[0])
+                        {
+                            case nameof(LookupUriApiPath):
+                                lookupUriApiPathTest = keyValue[1];
+                                break;
+
+                            case nameof(ServiceProviderApiPath):
+                                serviceProviderApiPathTest = keyValue[1];
+                                break;
+
+                            case nameof(ServiceProviderUnblockRequestPath):
+                                serviceProviderUnblockRequestPathTest = keyValue[1];
+                                break;
+                        }
+                    }
+
+                    // Gives us some way to check that our test URLs are actually getting picked up by the application.
+                    m_logger.Info("Test URL settings are");
+                    m_logger.Info("{0}={1}", nameof(LookupUriApiPath), LookupUriApiPath);
+                    m_logger.Info("{0}={1}", nameof(ServiceProviderApiPath), ServiceProviderApiPath);
+                    m_logger.Info("{0}={1}", nameof(ServiceProviderUnblockRequestPath), ServiceProviderUnblockRequestPath);
+                }
+            }
+            catch
+            {
+                lookupUriApiPathTest = null;
+                serviceProviderApiPathTest = null;
+                serviceProviderUnblockRequestPathTest = null;
+            }
         }
 
         public AuthenticationResultObject Authenticate(string username, byte[] unencryptedPassword)

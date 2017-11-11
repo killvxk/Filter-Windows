@@ -337,6 +337,11 @@ namespace CitadelService.Services
 
             try
             {
+#if DEBUG
+                // Check for test URL file and load it if it exists.
+                WebServiceUtil.Default.LoadTestingUrls();
+#endif
+
                 var bitVersionUri = string.Empty;
                 if(Environment.Is64BitProcess)
                 {
