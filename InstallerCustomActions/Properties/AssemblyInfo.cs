@@ -7,9 +7,10 @@ using System.Runtime.InteropServices;
 // associated with an assembly.
 [assembly: AssemblyTitle("InstallerCustomActions")]
 [assembly: AssemblyDescription("")]
-[assembly: AssemblyCompany("Windows User")]
+[assembly: AssemblyCompany("CloudVeil Technology, Inc. 2018")]
 [assembly: AssemblyProduct("InstallerCustomActions")]
-[assembly: AssemblyCopyright("Copyright © Windows User 2018")]
+[assembly: AssemblyCopyright("Copyright © CloudVeil Technology, Inc.  2018")]
+>>>>>>> df5a61da42f8e823a75927f4c3d12423ac251e29
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
@@ -19,7 +20,7 @@ using System.Runtime.InteropServices;
 [assembly: ComVisible(false)]
 
 // The following GUID is for the ID of the typelib if this project is exposed to COM
-[assembly: Guid("4350815c-3cb2-45fe-9bc0-ed7f0e6db4e0")]
+[assembly: Guid("2fd83d0e-949a-49a7-96a7-0d2cb278880a")]
 
 // Version information for an assembly consists of the following four values:
 //
