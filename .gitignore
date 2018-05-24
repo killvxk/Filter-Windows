@@ -256,3 +256,5 @@ BuildBot/
 
 # Ignore tests
 Tests/
+
+.DS_Store

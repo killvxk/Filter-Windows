@@ -1,23 +1,37 @@
-﻿using System;
+﻿#if WINDOWS
+using System;
+using System.Threading;
 using Citadel.Core.Windows.Util;
 
 namespace CitadelService.Services
 {
     public partial class FilterServiceProvider
     {
-        #region Windows Service API
+#region Windows Service API
 
         public bool Start()
         {
             try
             {
-                LogTime("Starting FilterServiceProvider");
-                OnStartup();
+                Thread thread = new Thread(OnStartup);
+                thread.Start();
+
+                //OnStartup();
             }
             catch (Exception e)
             {
                 // Critical failure.
-                LoggerUtil.RecursivelyLogException(m_logger, e);
+                try
+                {
+                    EventLog.CreateEventSource("FilterServiceProvider", "Application");
+                    EventLog.WriteEntry("FilterServiceProvider", $"Exception occurred before logger was bootstrapped: {e.ToString()}");
+                }
+                catch (Exception e2)
+                {
+                    File.AppendAllText(@"C:\FilterServiceProvider.FatalCrashLog.log", $"Fatal crash.\r\n{e.ToString()}\r\n{e2.ToString()}");
+                }
+
+                //LoggerUtil.RecursivelyLogException(m_logger, e);
                 return false;
             }
 
@@ -42,6 +56,7 @@ namespace CitadelService.Services
             ReviveGuiForCurrentUser(true);
         }
 
-        #endregion Windows Service API
+#endregion Windows Service API
     }
 }
+#endif

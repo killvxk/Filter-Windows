@@ -25,6 +25,10 @@ namespace Citadel.Core.Windows.Util
 {
     internal enum ServiceResource
     {
+        UserConfigSumCheck,
+        UserConfigRequest,
+        RuleDataSumCheck,
+        RuleDataRequest,
         UserDataRequest,
         UserDataSumCheck,
         DeactivationRequest,
@@ -50,6 +54,10 @@ namespace Citadel.Core.Windows.Util
 
         private static readonly Dictionary<ServiceResource, string> m_namedResourceMap = new Dictionary<ServiceResource, string>
         {
+            { ServiceResource.UserConfigRequest, "/api/v2/me/config/get" },
+            { ServiceResource.UserConfigSumCheck, "/api/v2/me/config/check" },
+            { ServiceResource.RuleDataRequest, "/api/v2/rules/get" },
+            { ServiceResource.RuleDataSumCheck, "/api/v2/rules/check" },
             { ServiceResource.UserDataRequest, "/api/v2/me/data/get" },
             { ServiceResource.UserDataSumCheck, "/api/v2/me/data/check" },
             { ServiceResource.DeactivationRequest, "/api/v2/me/deactivate" },
@@ -60,9 +68,6 @@ namespace Citadel.Core.Windows.Util
             { ServiceResource.BypassRequest, "/api/v2/me/bypass" },
             { ServiceResource.AccountabilityNotify, "/api/v2/me/accountability" }
         };
-
-        private object m_authenticationLock = new object();
-        private object m_emailLock = new object();
 
         private readonly Logger m_logger;
 
@@ -122,7 +127,7 @@ namespace Citadel.Core.Windows.Util
         {
             get
             {
-                return StringExtensions.Valid(AuthToken);
+                return StringExtensions.Valid(WebServiceUtil.Default.AuthToken);
             }
         }
 
@@ -236,8 +241,8 @@ namespace Citadel.Core.Windows.Util
                     {
                         using(var tr = new StreamReader(response.GetResponseStream()))
                         {
-                            AuthToken = tr.ReadToEnd();
-                            UserEmail = username;
+                            WebServiceUtil.Default.AuthToken = tr.ReadToEnd();
+                            WebServiceUtil.Default.UserEmail = username;
                         }
 
                         response.Close();
@@ -250,7 +255,7 @@ namespace Citadel.Core.Windows.Util
                         if(code == 401 || code == 403)
                         {
                             m_logger.Info("Authentication failed with code: {0}.", code);
-                            AuthToken = string.Empty;
+                            WebServiceUtil.Default.AuthToken = string.Empty;
                             ret.AuthenticationResult = AuthenticationResult.Failure;
                             return ret;
                         }
@@ -300,7 +305,6 @@ namespace Citadel.Core.Windows.Util
                         if (code == 401 || code == 403)
                         {
                             AuthToken = string.Empty;
-                            
                         }
 
                         if (code > 399 && code < 499)
@@ -334,7 +338,7 @@ namespace Citadel.Core.Windows.Util
                 }
 
                 m_logger.Info("Authentication failed due to a failure to process the request and response.");
-                AuthToken = string.Empty;
+                WebServiceUtil.Default.AuthToken = string.Empty;
                 ret.AuthenticationResult = AuthenticationResult.Failure;
                 return ret;
             }
@@ -358,7 +362,7 @@ namespace Citadel.Core.Windows.Util
             // If we had success, we should/would have returned by now.
             if(!connectionFailure)
             {
-                AuthToken = string.Empty;
+                WebServiceUtil.Default.AuthToken = string.Empty;
             }
 
             ret.AuthenticationResult = connectionFailure ? AuthenticationResult.ConnectionFailed : AuthenticationResult.Failure;
@@ -458,7 +462,7 @@ namespace Citadel.Core.Windows.Util
                         // Auth failure means re-log EXCEPT when requesting deactivation.
                         if (intCode == 401 || intCode == 403)
                         {
-                            AuthToken = string.Empty;
+                            WebServiceUtil.Default.AuthToken = string.Empty;
                             m_logger.Info("Client error occurred while trying to lookup site.");
                             //AuthTokenRejected?.Invoke();
                         }
@@ -554,7 +558,7 @@ namespace Citadel.Core.Windows.Util
 
                 var request = GetApiBaseRequest(m_namedResourceMap[resource]);
 
-                var accessToken = AuthToken;
+                var accessToken = WebServiceUtil.Default.AuthToken;
 
                 //m_logger.Info("RequestResource1: accessToken=" + accessToken);
                 m_logger.Info("RequestResource: accessToken length={0}", accessToken == null ? "(null)" : accessToken.Length.ToString());
@@ -668,7 +672,7 @@ namespace Citadel.Core.Windows.Util
                         // Auth failure means re-log EXCEPT when requesting deactivation.
                         if((intCode == 401 || intCode == 403) && resource != ServiceResource.DeactivationRequest)
                         {
-                            AuthToken = string.Empty;
+                            WebServiceUtil.Default.AuthToken = string.Empty;
                             m_logger.Info("RequestResource2: Authorization failed.");
                             AuthTokenRejected?.Invoke();
                         }
@@ -709,8 +713,6 @@ namespace Citadel.Core.Windows.Util
                 }
             }
 
-
-
             return null;
         }
 
@@ -750,7 +752,7 @@ namespace Citadel.Core.Windows.Util
 
                 var request = GetApiBaseRequest(m_namedResourceMap[resource]);
 
-                var accessToken = AuthToken;
+                var accessToken = WebServiceUtil.Default.AuthToken;
 
                 if(StringExtensions.Valid(accessToken))
                 {
@@ -823,7 +825,7 @@ namespace Citadel.Core.Windows.Util
 
                         if(intCode == 401 || intCode == 403)
                         {
-                            AuthToken = string.Empty;
+                            WebServiceUtil.Default.AuthToken = string.Empty;
                             m_logger.Info("SendResource2: Authorization failed.");
                             AuthTokenRejected?.Invoke();
                         }
