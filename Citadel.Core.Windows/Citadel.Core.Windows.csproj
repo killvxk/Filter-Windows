@@ -123,6 +123,12 @@
       <Version>4.0.3</Version>
     </PackageReference>
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj">
+      <Project>{327F267A-AE7E-4CEA-BF25-3A3EA0042823}</Project>
+      <Name>Citadel.Platform.Common</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
        Other similar extension points exist, see Microsoft.Common.targets.

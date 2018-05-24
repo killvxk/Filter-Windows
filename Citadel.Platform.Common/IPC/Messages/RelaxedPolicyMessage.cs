@@ -7,7 +7,7 @@
 
 using System;
 
-namespace Citadel.IPC.Messages
+namespace Citadel.Platform.Common.IPC
 {
     [Serializable]
     public enum RelaxedPolicyStatus

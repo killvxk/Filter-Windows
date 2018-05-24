@@ -81,6 +81,7 @@
     <EmbeddedResource Include="Services\Sentinel.cs" />
     <Compile Include="Services\ServiceSpawner.cs" />
     <EmbeddedResource Include="Services\Warden.cs" />
+    <Compile Include="Services\FilterServiceProvider.Windows.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Citadel.Core.Windows\Citadel.Core.Windows.csproj">
