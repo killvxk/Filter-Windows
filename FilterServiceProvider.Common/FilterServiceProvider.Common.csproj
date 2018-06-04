@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Class1.cs" />
+    <Compile Remove="Properties\AssemblyInfo.cs" />
+    <Compile Remove="Util\DnsEnforcement.cs" />
+    <Compile Remove="Services\TrustManager.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj" />
+    <ProjectReference Include="..\CitadelCore.Unix\CitadelCore.Unix.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="CloudVeil.DistillNET" Version="1.4.8" />
+    <PackageReference Include="DNS" Version="4.0.0" />
+    <PackageReference Include="NLog" Version="4.5.6" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Platform\" />
+    <Folder Include="Platform\Abstractions\" />
+  </ItemGroup>
+</Project>

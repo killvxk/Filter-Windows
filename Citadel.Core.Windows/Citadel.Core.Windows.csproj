@@ -67,17 +67,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="Data\Serialization\CookieListConverter.cs" />
-    <Compile Include="Data\Serialization\IntToMinutesTimespanConverter.cs" />
-    <Compile Include="Data\Serialization\SafeFloatConverter.cs" />
-    <Compile Include="Data\Serialization\SafeIntConverter.cs" />
-    <Compile Include="Extensions\NameValueCollectionExtensions.cs" />
-    <Compile Include="Extensions\StringExtensions.cs" />
-    <Compile Include="Extensions\X509Extensions.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <Compile Include="Services\BaseProtectiveService.cs" />
-    <Compile Include="Types\ConfigUpdateResult.cs" />
-    <Compile Include="Util\AuthenticationResultObject.cs" />
     <Compile Include="Util\Net\NetworkListUtil.cs" />
     <Compile Include="Util\Process\ExitCodes.cs" />
     <Compile Include="Util\Http\FastHtmlTextExtractor.cs" />
@@ -86,12 +77,8 @@
       <Link>Util\Process\ProcessExtensions.cs</Link>
     </Compile>
     <Compile Include="Util\GuidUtility.cs" />
-    <Compile Include="Util\Http\HttpUtils.cs" />
-    <Compile Include="Util\Logging\LoggerUtil.cs" />
     <Compile Include="Util\Process\CriticalKernelProcessUtility.cs" />
     <Compile Include="Util\RegistryUtil.cs" />
-    <Compile Include="Util\Update\AppcastUpdater.cs" />
-    <Compile Include="Util\Update\ApplicationUpdate.cs" />
     <Compile Include="Util\Net\WFPUtility.cs" />
     <Compile Include="WinAPI\AppAssociationHelper.cs" />
     <Compile Include="WinAPI\SFC.cs" />
@@ -128,6 +115,9 @@
       <Project>{327F267A-AE7E-4CEA-BF25-3A3EA0042823}</Project>
       <Name>Citadel.Platform.Common</Name>
     </ProjectReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Types\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

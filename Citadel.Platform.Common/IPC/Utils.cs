@@ -1,4 +1,7 @@
 ﻿using System;
+using System.Security;
+using Citadel.IPC.Messages;
+
 namespace Citadel.Platform.Common.IPC
 {
     /// <summary>

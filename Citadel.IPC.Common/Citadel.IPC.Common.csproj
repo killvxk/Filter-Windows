@@ -54,10 +54,28 @@
     <Reference Include="Microsoft.CSharp" />
   </ItemGroup>
   <ItemGroup>
+    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="IPC\ClientUtils.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
     <Compile Include="IPC\IPCClient.cs" />
     <Compile Include="IPC\IPCMessageTracker.cs" />
     <Compile Include="IPC\IPCServer.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
+    <Compile Include="IPC\Messages\AuthenticationMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\BaseMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\BlockActionReviewRequestMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\CaptivePortalDetectionMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ClientOnlyMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ClientToClientMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ClientUpdateResponseMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\DeactivationMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\FilterStatusMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\NotifyBlockActionMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\NotifyConfigUpdateMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\RelaxedPolicyMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\RequestConfigUpdateMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ServerOnlyMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ServerUpdateNotificationMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Messages\ServerUpdateQueryMessage.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
+    <Compile Include="IPC\Utils.cs" Condition=" '$(EnableDefaultCompileItems)' == 'true' " />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Citadel.Core.Windows\Citadel.Core.Windows.csproj">
@@ -76,6 +94,9 @@
     <PackageReference Include="NETStandard.Library">
       <Version>2.0.1</Version>
     </PackageReference>
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="IPC\" />
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 

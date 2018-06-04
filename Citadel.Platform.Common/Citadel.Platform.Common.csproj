@@ -5,7 +5,25 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <Folder Include="Types\" />
+    <Folder Include="Extensions\" />
+    <Folder Include="Http\" />
+    <Folder Include="Data\" />
+    <Folder Include="Util\" />
+    <Folder Include="Util\Logging\" />
+    <Folder Include="Util\Update\" />
     <Folder Include="IPC\" />
-    <Folder Include="IPC\Messages\" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />
+    <PackageReference Include="NLog" Version="4.5.6" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Remove="IPlatformServices.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Reference Include="System.ServiceModel">
+      <HintPath>..\..\..\..\..\Library\Frameworks\Mono.framework\Versions\5.10.1\lib\mono\4.6.2-api\System.ServiceModel.dll</HintPath>
+    </Reference>
   </ItemGroup>
 </Project>

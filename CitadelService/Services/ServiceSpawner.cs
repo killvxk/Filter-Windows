@@ -34,7 +34,7 @@ using Citadel.Core.Windows.Util;
 
 namespace CitadelService.Services
 {
-    internal class ServiceSpawner
+    internal class ServiceSpawner : IServiceKeepAlive
     {
         // This entire class is a dummy to force topshelf assemblies
         // to be linked to this assembly. See notes above the topshelf

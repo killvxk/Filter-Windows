@@ -1,4 +1,4 @@
-﻿using Citadel.Core.Extensions;
+﻿using FilterServiceProvider.Common.Platform.Abstractions;
 using Citadel.Core.Windows.Util;
 using murrayju.ProcessExtensions;
 using System;
@@ -13,7 +13,7 @@ using System.Threading.Tasks;
 
 namespace CitadelService.Services
 {
-    public class TrustManager
+    public class TrustManager : ITrustManagement
     {
         private NLog.Logger m_logger;
 

@@ -16,9 +16,6 @@ using System.Threading.Tasks;
 
 namespace CitadelService.Util
 {
-    public delegate void CaptivePortalModeHandler(bool isCaptivePortal, bool isActive);
-    public delegate void DnsEnforcementHandler(bool isEnforcementActive);
-
     internal class DnsEnforcement
     {
         /// <summary>
