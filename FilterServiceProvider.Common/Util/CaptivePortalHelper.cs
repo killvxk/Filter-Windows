@@ -1,4 +1,6 @@
 ﻿using Citadel.Core.Windows.Util;
+using FilterServiceProvider.Common.Platform;
+using FilterServiceProvider.Services;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -6,7 +8,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace CitadelService.Util
+namespace FilterServiceProvider.Common.Util
 {
     /// <summary>
     /// Tri-state detection enum for checkCaptivePortalState()
@@ -49,16 +51,16 @@ namespace CitadelService.Util
         /// <returns>List of any SSIDs that the computer is connected to. The count of this list will most likely be 1.</returns>
         private string[] detectCurrentSSIDs()
         {
-            return new string[0];
+            return FilterProvider.Platform.WlanInfo.GetConnectedSsids().ToArray();
         }
 
         private object m_captivePortalSettingsLock = new object();
-        
+
         private string portalSettingsPath
         {
             get
             {
-                return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), @"CloudVeil\captive-portal-settings.dat");
+                return PathProvider.GetAppDataFile("captive-portal-settings.dat");
             }
         }
 

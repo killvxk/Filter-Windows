@@ -150,6 +150,7 @@ namespace Citadel.Core.Windows.Util
         private WebServiceUtil()
         {
             m_logger = LoggerUtil.GetAppWideLogger();
+            m_auth = FilterProvider.PlatformFactory.NewAuthenticationStorage();
         }
 
         public AuthenticationResultObject Authenticate(string username, byte[] unencryptedPassword)
@@ -174,7 +175,7 @@ namespace Citadel.Core.Windows.Util
             }
 
             // Don't bother if we don't have internet.
-            var hasInternet = FilterProvider.ServiceProvider.NetworkStatus.HasIpv4InetConnection || FilterProvider.ServiceProvider.NetworkStatus.HasIpv6InetConnection;
+            var hasInternet = FilterProvider.Platform.NetworkStatus.HasIpv4InetConnection || FilterProvider.Platform.NetworkStatus.HasIpv6InetConnection;
             if(hasInternet == false)
             {
                 m_logger.Info("Aborting authentication attempt because no internet connection could be detected.");
@@ -206,7 +207,7 @@ namespace Citadel.Core.Windows.Util
 
                 // Build out username and password as post form data. We need to ensure that we mop
                 // up any decrypted forms of our password when we're done, and ASAP.
-                formData = System.Text.Encoding.UTF8.GetBytes(string.Format("email={0}&identifier={1}&device_id={2}", username, FilterProvider.ServiceProvider.Fingerprint, deviceName));
+                formData = System.Text.Encoding.UTF8.GetBytes(string.Format("email={0}&identifier={1}&device_id={2}", username, FilterProvider.Platform.Fingerprint, deviceName));
 
                 // Don't forget to the set the content length to the total length of our form POST data!
                 authRequest.ContentLength = formData.Length;
@@ -580,7 +581,7 @@ namespace Citadel.Core.Windows.Util
                 string version = System.Reflection.AssemblyName.GetAssemblyName(assembly.Location).Version.ToString();
 
                 // Build out post data with username and identifier.
-                string postString = string.Format("&identifier={0}&device_id={1}", FilterProvider.ServiceProvider.Fingerprint, Uri.EscapeDataString(deviceName));
+                string postString = string.Format("&identifier={0}&device_id={1}", FilterProvider.Platform.Fingerprint, Uri.EscapeDataString(deviceName));
 
                 if(parameters != null)
                 {
@@ -767,7 +768,7 @@ namespace Citadel.Core.Windows.Util
                 }
 
                 // Build out post data with username and identifier.
-                var formData = System.Text.Encoding.UTF8.GetBytes(string.Format("identifier={0}&device_id={1}&", FilterProvider.ServiceProvider.Fingerprint, Uri.EscapeDataString(deviceName)));
+                var formData = System.Text.Encoding.UTF8.GetBytes(string.Format("identifier={0}&device_id={1}&", FilterProvider.Platform.Fingerprint, Uri.EscapeDataString(deviceName)));
 
                 // Merge all data.
                 var finalData = new byte[formData.Length + formEncodedData.Length];

@@ -82,16 +82,6 @@ namespace CitadelService.Services
             ReviveGuiForCurrentUser(true);
         }
 
-        public void OnSessionEnding()
-        {
-            m_logger.Info("Session ending.");
-
-            // THIS MUST BE DONE HERE ALWAYS, otherwise, we get BSOD.
-            CriticalKernelProcessUtility.SetMyProcessAsNonKernelCritical();
-
-            Environment.Exit((int)ExitCodes.ShutdownWithSafeguards);
-        }
-
         /// <summary>
         /// Implements IPlatformServiceProvider.EnsureFirewallAccess()
         /// </summary>

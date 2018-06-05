@@ -3,8 +3,8 @@ using System.Collections.Generic;
 
 namespace FilterServiceProvider.Common.Platform.Abstractions
 {
-    public interface IWifiManager
+    public interface IWlanInfo
     {
-        List<string> GetWifiSSIDs();
+        List<string> GetConnectedSsids();
     }
 }

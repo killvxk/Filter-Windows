@@ -45,12 +45,15 @@ using CitadelService.Common.Configuration;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using Citadel.Platform.Common.IPC;
 using Citadel.Core.Windows.Util.Update;
+using FilterServiceProvider.Common.Platform;
 
 namespace FilterServiceProvider.Services
 {
     public class FilterProvider
     {
-        public static IPlatformServiceProvider ServiceProvider { get; private set; }
+        public static FilterProvider ServiceProvider { get; private set; }
+        public static IPlatformFactory PlatformFactory { get; private set; }
+        public static IPlatformServiceProvider Platform { get; private set; }
 
         private FilterStatus Status
         {
@@ -224,23 +227,28 @@ namespace FilterServiceProvider.Services
 
         private ReaderWriterLockSlim m_appcastUpdaterLock = new ReaderWriterLockSlim();
 
+        public IDnsEnforcement DnsEnforcement
+        {
+            get
+            {
+                return m_dnsEnforcement;
+            }
+        }
+
         private IDnsEnforcement m_dnsEnforcement;
 
         private Accountability m_accountability;
 
         private ITrustManagement m_trustManagement;
 
-        private IPlatformServices m_platformServices;
-
         /// <summary>
         /// Default ctor. 
         /// </summary>
-        public FilterProvider(IPlatformServices platformServices)
+        public FilterProvider(IPlatformFactory factory, IPlatformServiceProvider platformProvider)
         {
-            m_platformServices = platformServices;
-            ServiceProvider = platformServices.ServiceProvider;
-
-            m_trustManagement = platformServices.NewTrustManagement();
+            ServiceProvider = this;
+            PlatformFactory = factory;
+            Platform = platformProvider;
         }
 
         public void OnStartup()
@@ -273,7 +281,7 @@ namespace FilterServiceProvider.Services
 
             try
             {
-                m_ipcServer = m_platformServices.NewIPCServer();
+                m_ipcServer = PlatformFactory.NewIPCServer();
                 m_policyConfiguration = new DefaultPolicyConfiguration(m_ipcServer, m_logger, m_filteringRwLock);
             }
             catch (Exception ex)
@@ -309,6 +317,7 @@ namespace FilterServiceProvider.Services
 
             // Hook the shutdown/logoff event.
             //SystemEvents.SessionEnding += OnAppSessionEnding;
+            Platform.InitializeOnSessionEnding(this.OnSessionEnding);
 
             // Hook app exiting function. This must be done on this main app thread.
             AppDomain.CurrentDomain.ProcessExit += OnApplicationExiting;
@@ -340,14 +349,14 @@ namespace FilterServiceProvider.Services
 
             WebServiceUtil.Default.AuthTokenRejected += () =>
             {
-                ReviveGuiForCurrentUser();
+                Platform.ReviveGuiForCurrentUser();
                 m_ipcServer.NotifyAuthenticationStatus(Citadel.IPC.Messages.AuthenticationAction.Required);
             };
 
             try
             {
                 m_policyConfiguration.OnConfigurationLoaded += OnConfigLoaded_LoadRelaxedPolicy;
-                m_dnsEnforcement = ServiceProvider.DnsEnforcement;
+                m_dnsEnforcement = PlatformFactory.NewDnsEnforcement(m_policyConfiguration, m_logger);
 
                 m_dnsEnforcement.OnCaptivePortalMode += (isCaptivePortal, isActive) =>
                 {
@@ -393,7 +402,7 @@ namespace FilterServiceProvider.Services
 
                                     case AuthenticationResult.Failure:
                                         {
-                                            ReviveGuiForCurrentUser();
+                                            Platform.ReviveGuiForCurrentUser();
                                             m_ipcServer.NotifyAuthenticationStatus(AuthenticationAction.Required, new AuthenticationResultObject(AuthenticationResult.Failure, authResult.AuthenticationMessage));
                                         }
                                         break;
@@ -444,7 +453,7 @@ namespace FilterServiceProvider.Services
 
                             if (m_lastFetchedUpdate.IsRestartRequired)
                             {
-                                string restartFlagPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "restart.flag");
+                                string restartFlagPath = PathProvider.GetAppDataFile("restart.flag");
                                 using (StreamWriter writer = File.CreateText(restartFlagPath))
                                 {
                                     writer.Write("# This file left intentionally blank (tee-hee)\n");
@@ -452,7 +461,7 @@ namespace FilterServiceProvider.Services
                             }
 
                             // Save auth token when shutting down for update.
-                            string appDataPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil");
+                            string appDataPath = PathProvider.GetAppDataPath();
 
                             try
                             {
@@ -587,13 +596,8 @@ namespace FilterServiceProvider.Services
 
                             //m_logger.Info("Starting process: {0}", AppAssociationHelper.PathToDefaultBrowser);
                             //m_logger.Info("With args: {0}", reportPath);
-
-                            var sanitizedArgs = "\"" + Regex.Replace(reportPath, @"(\\+)$", @"$1$1") + "\"";
-                            var sanitizedPath = "\"" + Regex.Replace(AppAssociationHelper.PathToDefaultBrowser, @"(\\+)$", @"$1$1") + "\"" + " " + sanitizedArgs;
-                            ProcessExtensions.StartProcessAsCurrentUser(null, sanitizedPath);
-
-                            //var cmdPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.System), "cmd.exe");
-                            //ProcessExtensions.StartProcessAsCurrentUser(cmdPath, string.Format("/c start \"{0}\"", reportPath));
+                            string cmdLine = $"{Platform.ProcessUtils.DefaultBrowserPath} {reportPath}";
+                            Platform.ProcessUtils.StartProcessAsCurrentUser(null, cmdLine);
                         }
                         catch (Exception e)
                         {
@@ -673,7 +677,7 @@ namespace FilterServiceProvider.Services
             LogTime("Done with OnStartup initialization.");
 
             // Before we do any network stuff, ensure we have windows firewall access.
-            m_platformServices.ServiceProvider.EnsureFirewallAccess();
+            Platform.EnsureFirewallAccess();
 
             LogTime("EnsureWindowsFirewallAccess() is done");
 
@@ -723,6 +727,17 @@ namespace FilterServiceProvider.Services
 
         #endregion
 
+        public void OnSessionEnding()
+        {
+            m_logger.Info("Session ending.");
+
+            Platform.Antitampering.EnableProcessTermination();
+            // THIS MUST BE DONE HERE ALWAYS, otherwise, we get BSOD.
+            //CriticalKernelProcessUtility.SetMyProcessAsNonKernelCritical();
+
+            Environment.Exit((int)ExitCodes.ShutdownWithSafeguards);
+        }
+
         private void CurrentDomain_UnhandledException(object sender, UnhandledExceptionEventArgs e)
         {
             Exception err = e.ExceptionObject as Exception;
@@ -754,7 +769,7 @@ namespace FilterServiceProvider.Services
             bool hadError = false;
             bool isAvailable = false;
 
-            string updateSettingsPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "update.settings");
+            string updateSettingsPath = PathProvider.GetAppDataFile("update.settings");
 
             string[] commandParts = null;
             if (File.Exists(updateSettingsPath))
@@ -805,7 +820,7 @@ namespace FilterServiceProvider.Services
                         }
                     }
 
-                    ReviveGuiForCurrentUser();
+                    Platform.ReviveGuiForCurrentUser();
 
                     Task.Delay(500).Wait();
 
@@ -866,7 +881,7 @@ namespace FilterServiceProvider.Services
             // Init the engine with our callbacks, the path to the ca-bundle, let it pick whatever
             // ports it wants for listening, and give it our total processor count on this machine as
             // a hint for how many threads to use.
-            m_filteringEngine = new WindowsProxyServer(OnAppFirewallCheck, OnHttpMessageBegin, OnHttpMessageEnd, OnBadCertificate);
+            m_filteringEngine = PlatformFactory.NewProxyServer(OnAppFirewallCheck, OnHttpMessageBegin, OnHttpMessageEnd, OnBadCertificate);
 
             // Setup general info, warning and error events.
             LoggerProxy.Default.OnInfo += EngineOnInfo;
@@ -891,25 +906,14 @@ namespace FilterServiceProvider.Services
             // option to trust the local certificate store, we don't have to do that anymore.
             try
             {
-                m_trustManager.EstablishTrustWithFirefox();
+                m_trustManagement.EstablishTrust();
             }
             catch (Exception ffe)
             {
                 LoggerUtil.RecursivelyLogException(m_logger, ffe);
             }
 
-            // Establish trust with git. We have to wait for the engine to write the CA to disk? Why can't we just export it on demand?
-            try
-            {
-                m_trustManager.EstablishTrustWithGit();
-            }
-            catch (Exception ex)
-            {
-                m_logger.Error("EstablishTrustWithGit failed.");
-                LoggerUtil.RecursivelyLogException(m_logger, ex);
-            }
-
-            LogTime("Trust established with firefox.");
+            LogTime("Trust established with firefox and git.");
         }
 
 #if WITH_NLP
@@ -1014,7 +1018,7 @@ namespace FilterServiceProvider.Services
             // Force start our cascade of protective processes.
             try
             {
-                ServiceSpawner.Instance.InitializeServices();
+                Platform.Antitampering.Initialize();
             }
             catch (Exception se)
             {
@@ -1028,7 +1032,7 @@ namespace FilterServiceProvider.Services
             OnCleanupLogsElapsed(null);
 
             // Set up our network availability checks so we can run captive portal detection on a changed network.
-            NetworkChange.NetworkAddressChanged += m_dnsEnforcement.OnNetworkChange;
+            NetworkChange.NetworkAddressChanged += m_dnsEnforcement.OnNetworkChanged;
 
             // Run on startup so we can get the network state right away.
             m_dnsEnforcement.Trigger();
@@ -1091,7 +1095,7 @@ namespace FilterServiceProvider.Services
         private void OnBackgroundInitComplete(object sender, RunWorkerCompletedEventArgs e)
         {
             // Must ensure we're not blocking internet now that we're running.
-            WFPUtility.EnableInternet();
+            Platform.InternetUtils.EnableInternet();
 
             if (e.Cancelled || e.Error != null)
             {
@@ -1109,7 +1113,7 @@ namespace FilterServiceProvider.Services
 
             Status = FilterStatus.Running;
 
-            ReviveGuiForCurrentUser(true);
+            Platform.ReviveGuiForCurrentUser(true);
         }
 
         #region EngineCallbacks
@@ -1162,7 +1166,7 @@ namespace FilterServiceProvider.Services
                     try
                     {
                         m_logger.Warn("Block action threshold met or exceeded. Disabling internet.");
-                        WFPUtility.DisableInternet();
+                        Platform.InternetUtils.DisableInternet();
                     }
                     catch (Exception e)
                     {
@@ -1251,117 +1255,71 @@ namespace FilterServiceProvider.Services
         /// </returns>
         private bool OnAppFirewallCheck(string appAbsolutePath)
         {
-            // XXX TODO - The engine shouldn't even tell us about SYSTEM processes and just silently
-            // let them through.
-            if (appAbsolutePath.OIEquals("SYSTEM"))
+            if (!Platform.OnAppFirewallCheck(appAbsolutePath))
             {
-                return false;
-            }
+                // TODO: Platform agnostic firewall check code here.
 
-            // Lets completely avoid piping anything from the operating system in the filter, with
-            // the sole exception of Microsoft edge.
-            if ((appAbsolutePath.IndexOf("MicrosoftEdge", StringComparison.OrdinalIgnoreCase) == -1) && appAbsolutePath.IndexOf(@"\Windows\", StringComparison.OrdinalIgnoreCase) != -1)
-            {
-                lock (s_foreverWhitelistedApplications)
+                try
                 {
-                    if (s_foreverWhitelistedApplications.Contains(appAbsolutePath))
+                    m_filteringRwLock.EnterReadLock();
+
+                    if (m_policyConfiguration.BlacklistedApplications.Count == 0 && m_policyConfiguration.WhitelistedApplications.Count == 0)
                     {
+                        // Just filter anything accessing port 80 and 443.
+                        m_logger.Debug("1Filtering application: {0}", appAbsolutePath);
+                        return true;
+                    }
+
+                    var appName = Path.GetFileName(appAbsolutePath);
+
+                    if (m_policyConfiguration.WhitelistedApplications.Count > 0)
+                    {
+                        bool inList = isAppInList(m_policyConfiguration.WhitelistedApplications, appAbsolutePath, appName);
+
+                        if (inList)
+                        {
+                            return false;
+                        }
+                        else
+                        {
+                            // Whitelist is in effect, and this app is not whitelisted, so force it through.
+                            m_logger.Debug("2Filtering application: {0}", appAbsolutePath);
+                            return true;
+                        }
+                    }
+
+                    if (m_policyConfiguration.BlacklistedApplications.Count > 0)
+                    {
+                        bool inList = isAppInList(m_policyConfiguration.BlacklistedApplications, appAbsolutePath, appName);
+
+                        if (inList)
+                        {
+                            m_logger.Debug("3Filtering application: {0}", appAbsolutePath);
+                            return true;
+                        }
+
                         return false;
                     }
-                }
 
-                // Here we'll simply check if the binary is signed. If so, we'll validate the
-                // certificate. If the cert is good, let's just go and bypass this binary altogether.
-                // However, note that this does not verify that the signed binary is actually valid
-                // for the certificate. That is, it doesn't ensure file integrity. Also, note that
-                // even if we went all the way as to use WinVerifyTrust() from wintrust.dll to
-                // completely verify integrity etc, this can still be bypassed by adding a self
-                // signed signing authority to the windows trusted certs.
-                //
-                // So, all we can do is kick the can further down the road. This should be sufficient
-                // to prevent the lay person from dropping a browser into the Windows folder.
-                //
-                // Leaving above notes just for the sake of knowledge. We can kick the can pretty
-                // darn far down the road by asking Windows Resource Protection if the file really
-                // belongs to the OS. Viruses are known to call SfcIsFileProtected in order to avoid
-                // getting caught messing with these files so if viruses avoid them, I think we've
-                // booted the can so far down the road that we need not worry about being exploited
-                // here. The OS would need to be funamentally compromised and that wouldn't be our fault.
-                //
-                // The only other way we could get exploited here by getting our hook to sfc.dll
-                // hijacked. There are countermeasures of course but not right now.
+                    // This app was not hit by either an enforced whitelist or blacklist. So, by default
+                    // we will filter everything. We should never get here, but just in case.
 
-                // If the result is greater than zero, then this is a protected operating system file
-                // according to the operating system.
-                if (SFC.SfcIsFileProtected(IntPtr.Zero, appAbsolutePath) > 0)
-                {
-                    lock (s_foreverWhitelistedApplications)
-                    {
-                        s_foreverWhitelistedApplications.Add(appAbsolutePath);
-                    }
-
-                    return false;
-                }
-            }
-
-            try
-            {
-                m_filteringRwLock.EnterReadLock();
-
-                if (m_policyConfiguration.BlacklistedApplications.Count == 0 && m_policyConfiguration.WhitelistedApplications.Count == 0)
-                {
-                    // Just filter anything accessing port 80 and 443.
-                    m_logger.Debug("1Filtering application: {0}", appAbsolutePath);
+                    m_logger.Debug("4Filtering application: {0}", appAbsolutePath);
                     return true;
                 }
-
-                var appName = Path.GetFileName(appAbsolutePath);
-
-                if (m_policyConfiguration.WhitelistedApplications.Count > 0)
+                catch (Exception e)
                 {
-                    bool inList = isAppInList(m_policyConfiguration.WhitelistedApplications, appAbsolutePath, appName);
-
-                    if (inList)
-                    {
-                        return false;
-                    }
-                    else
-                    {
-                        // Whitelist is in effect, and this app is not whitelisted, so force it through.
-                        m_logger.Debug("2Filtering application: {0}", appAbsolutePath);
-                        return true;
-                    }
-                }
-
-                if (m_policyConfiguration.BlacklistedApplications.Count > 0)
-                {
-                    bool inList = isAppInList(m_policyConfiguration.BlacklistedApplications, appAbsolutePath, appName);
-
-                    if (inList)
-                    {
-                        m_logger.Debug("3Filtering application: {0}", appAbsolutePath);
-                        return true;
-                    }
-
+                    m_logger.Error("Error in {0}", nameof(OnAppFirewallCheck));
+                    LoggerUtil.RecursivelyLogException(m_logger, e);
                     return false;
                 }
+                finally
+                {
+                    m_filteringRwLock.ExitReadLock();
+                }
+            }
 
-                // This app was not hit by either an enforced whitelist or blacklist. So, by default
-                // we will filter everything. We should never get here, but just in case.
-
-                m_logger.Debug("4Filtering application: {0}", appAbsolutePath);
-                return true;
-            }
-            catch (Exception e)
-            {
-                m_logger.Error("Error in {0}", nameof(OnAppFirewallCheck));
-                LoggerUtil.RecursivelyLogException(m_logger, e);
-                return false;
-            }
-            finally
-            {
-                m_filteringRwLock.ExitReadLock();
-            }
+            return true;
         }
 
         /// <summary>
@@ -2022,7 +1980,7 @@ namespace FilterServiceProvider.Services
         {
             try
             {
-                WFPUtility.EnableInternet();
+                Platform.InternetUtils.EnableInternet();
             }
             catch (Exception e)
             {
@@ -2100,7 +2058,8 @@ namespace FilterServiceProvider.Services
             finally
             {
                 // Enable the timer again.
-                if (!(NetworkStatus.Default.HasIpv4InetConnection || NetworkStatus.Default.HasIpv6InetConnection))
+                var netStatus = Platform.NetworkStatus;
+                if (!(netStatus.HasIpv4InetConnection || netStatus.HasIpv6InetConnection))
                 {
                     // If we have no internet, keep polling every 15 seconds. We need that data ASAP.
                     this.m_updateCheckTimer.Change(TimeSpan.FromSeconds(15), Timeout.InfiniteTimeSpan);
@@ -2186,8 +2145,7 @@ namespace FilterServiceProvider.Services
 
         private void CleanupLogs()
         {
-            string directoryPath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "logs");
-
+            string directoryPath = PathProvider.GetAppDataFile("logs");
             if (Directory.Exists(directoryPath))
             {
                 string[] files = Directory.GetFiles(directoryPath);
@@ -2213,7 +2171,7 @@ namespace FilterServiceProvider.Services
             // Let's make sure we've pulled our internet block.
             try
             {
-                WFPUtility.EnableInternet();
+                Platform.InternetUtils.EnableInternet();
             }
             catch { }
 
@@ -2578,8 +2536,8 @@ namespace FilterServiceProvider.Services
         {
             // No matter what, ensure that all GUI instances for all users are
             // immediately shut down, because we, the service, are shutting down.
-            KillAllGuis();
-
+            Platform.KillAllGuis();
+            
             lock (m_cleanShutdownLock)
             {
                 if (!m_cleanShutdownComplete)
@@ -2589,7 +2547,7 @@ namespace FilterServiceProvider.Services
                     try
                     {
                         // Pull our critical status.
-                        CriticalKernelProcessUtility.SetMyProcessAsNonKernelCritical();
+                        Platform.Antitampering.EnableProcessTermination();
                     }
                     catch (Exception e)
                     {
@@ -2631,7 +2589,7 @@ namespace FilterServiceProvider.Services
                                 // can't browse the web without us. Only do this of course if configured.
                                 try
                                 {
-                                    WFPUtility.DisableInternet();
+                                    Platform.InternetUtils.DisableInternet();
                                 }
                                 catch { }
                             }
@@ -2652,109 +2610,6 @@ namespace FilterServiceProvider.Services
                     m_cleanShutdownComplete = true;
                 }
             }
-        }
-
-        /// <summary>
-        /// Attempts to determine which neighbour application is the GUI and then, if it is not
-        /// running already as a user process, start the GUI. This should be used in situations like
-        /// when we need to ask the user to authenticate.
-        /// </summary>
-        private void ReviveGuiForCurrentUser(bool runInTray = false)
-        {
-            var allFilesWhereIam = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.exe", SearchOption.TopDirectoryOnly);
-
-            try
-            {
-                string guiExePath;
-                if (TryGetGuiFullPath(out guiExePath))
-                {
-                    m_logger.Info("Starting external GUI executable : {0}", guiExePath);
-
-                    if (runInTray)
-                    {
-                        var sanitizedArgs = "\"" + Regex.Replace("/StartMinimized", @"(\\+)$", @"$1$1") + "\"";
-                        var sanitizedPath = "\"" + Regex.Replace(guiExePath, @"(\\+)$", @"$1$1") + "\"" + " " + sanitizedArgs;
-                        ProcessExtensions.StartProcessAsCurrentUser(null, sanitizedPath);
-                    }
-                    else
-                    {
-                        ProcessExtensions.StartProcessAsCurrentUser(guiExePath);
-                    }
-
-
-                    return;
-                }
-            }
-            catch (Exception e)
-            {
-                m_logger.Error("Error enumerating all files.");
-                LoggerUtil.RecursivelyLogException(m_logger, e);
-            }
-        }
-
-        private void KillAllGuis()
-        {
-            try
-            {
-                string guiExePath;
-                if (TryGetGuiFullPath(out guiExePath))
-                {
-                    foreach (var proc in Process.GetProcesses())
-                    {
-                        try
-                        {
-                            if (proc.MainModule.FileName.OIEquals(guiExePath))
-                            {
-                                proc.Kill();
-                            }
-                        }
-                        catch { }
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                m_logger.Error("Error enumerating processes when trying to kill all GUI instances.");
-                LoggerUtil.RecursivelyLogException(m_logger, e);
-            }
-        }
-
-        private bool TryGetGuiFullPath(out string fullGuiExePath)
-        {
-            var allFilesWhereIam = Directory.GetFiles(AppDomain.CurrentDomain.BaseDirectory, "*.exe", SearchOption.TopDirectoryOnly);
-
-            try
-            {
-                // Get all exe files in the same dir as this service executable.
-                foreach (var exe in allFilesWhereIam)
-                {
-                    try
-                    {
-                        m_logger.Info("Checking exe : {0}", exe);
-                        // Try to get the exe file metadata.
-                        var fvi = System.Diagnostics.FileVersionInfo.GetVersionInfo(exe);
-
-                        // If our description notes that it's a GUI...
-                        if (fvi != null && fvi.FileDescription != null && fvi.FileDescription.IndexOf("GUI", StringComparison.OrdinalIgnoreCase) != -1)
-                        {
-                            fullGuiExePath = exe;
-                            return true;
-                        }
-                    }
-                    catch (Exception le)
-                    {
-                        LoggerUtil.RecursivelyLogException(m_logger, le);
-                    }
-                }
-            }
-            catch (Exception e)
-            {
-                m_logger.Error("Error enumerating sibling files.");
-                LoggerUtil.RecursivelyLogException(m_logger, e);
-            }
-
-            fullGuiExePath = string.Empty;
-            return false;
         }
     }
 }

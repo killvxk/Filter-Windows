@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>netcoreapp2.0</TargetFramework>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FilterServiceProvider.Common\FilterServiceProvider.Common.csproj" />
+    <ProjectReference Include="..\CitadelCore.Unix\CitadelCore.Unix.csproj" />
+    <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <Folder Include="Services\" />
+    <Folder Include="Platform\" />
+  </ItemGroup>
+</Project>

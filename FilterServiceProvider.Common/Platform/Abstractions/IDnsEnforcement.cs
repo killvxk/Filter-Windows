@@ -20,7 +20,7 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
         /// <summary>
         /// The FilterServiceProvider calls this when the network changes.
         /// </summary>
-        void OnNetworkChanged();
+        void OnNetworkChanged(object sender, EventArgs e);
 
         event DnsEnforcementHandler OnDnsEnforcementUpdate;
         event CaptivePortalModeHandler OnCaptivePortalMode;

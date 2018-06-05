@@ -4,8 +4,10 @@ using Citadel.Platform.Common.Types;
 
 namespace Citadel.Platform.Common.IPC
 {
-    public interface IIPCServer
+    public interface IIPCServer : IDisposable
     {
+        bool WaitingForAuth { get; }
+
         /// <summary>
         /// Delegate to be called when a client requests a relaxed policy. 
         /// </summary>
@@ -74,12 +76,7 @@ namespace Citadel.Platform.Common.IPC
         /// The relaxed policy command which caused this notification to happen.
         /// If == RelaxedPolicyCommand.Info, ignore.
         /// </param>
-        void NotifyRelaxedPolicyChange(int numPoliciesAvailable, TimeSpan policyDuration, RelaxedPolicyStatus status)
-        {
-            var nfo = new RelaxedPolicyInfo(policyDuration, numPoliciesAvailable, status);
-            var msg = new RelaxedPolicyMessage(RelaxedPolicyCommand.Info, nfo);
-            PushMessage(msg);
-        }
+        void NotifyRelaxedPolicyChange(int numPoliciesAvailable, TimeSpan policyDuration, RelaxedPolicyStatus status);
 
         /// <summary>
         /// Notifies clients of the supplied status change. 

@@ -13,6 +13,7 @@
     <Folder Include="Util\Logging\" />
     <Folder Include="Util\Update\" />
     <Folder Include="IPC\" />
+    <Folder Include="Util\Process\" />
   </ItemGroup>
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="11.0.2" />

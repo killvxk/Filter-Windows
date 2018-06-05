@@ -1,4 +1,6 @@
 ﻿using System;
+using CitadelCore.Net.Proxy;
+
 namespace FilterServiceProvider.Common.Platform.Abstractions
 {
     public delegate void SessionEndingHandler();
@@ -12,7 +14,7 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
         /// <summary>
         /// A function to initialize SessionEnding shutdown capabilities if needed.
         /// </summary>
-        void InitializeOnSessionEnding();
+        void InitializeOnSessionEnding(SessionEndingHandler handler);
 
         /// <summary>
         /// A function to ensure that our filter has access to the internet through the firewall.
@@ -20,11 +22,21 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
         /// </summary>
         void EnsureFirewallAccess();
 
+        void ReviveGuiForCurrentUser(bool runInTray = false);
+
+        void KillAllGuis();
+
+        bool OnAppFirewallCheck(string appAbsolutePath);
+
         INetworkStatus NetworkStatus { get; }
 
         IAntitampering Antitampering { get; }
 
-        IDnsEnforcement DnsEnforcement { get; }
+        IProcessUtils ProcessUtils { get; }
+
+        IInternetUtils InternetUtils { get; }
+
+        IWlanInfo WlanInfo { get; }
 
         /// <summary>
         /// The fingerprint to use to identify this particular computer.

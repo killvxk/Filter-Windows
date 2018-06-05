@@ -24,6 +24,7 @@ using Newtonsoft.Json;
 using DistillNET;
 using CitadelService.Data.Filtering;
 using System.Collections.Concurrent;
+using FilterServiceProvider.Common.Platform;
 
 namespace CitadelService.Common.Configuration
 {
@@ -94,8 +95,8 @@ namespace CitadelService.Common.Configuration
         {
 
 #if LOCAL_POLICY_CONFIGURATION
-            serverConfigFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "cfg.json");
-            serverListDataFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "a.dat");
+            serverConfigFilePath = PathProvider.GetAppDataFile("server-cfg.json");
+            serverListDataFilePath = PathProvider.GetAppDataFile("server-a.dat");
 #endif
 
             // cfg.json and data path? TODO FIXME
@@ -527,11 +528,11 @@ namespace CitadelService.Common.Configuration
                     if (Configuration.CannotTerminate)
                     {
                         // Turn on process protection if requested.
-                        FilterProvider.ServiceProvider.Antitampering.DisableProcessTermination();
+                        FilterProvider.Platform.Antitampering.DisableProcessTermination();
                     }
                     else
                     {
-                        FilterProvider.ServiceProvider.Antitampering.EnableProcessTermination();
+                        FilterProvider.Platform.Antitampering.EnableProcessTermination();
                         //CriticalKernelProcessUtility.SetMyProcessAsNonKernelCritical();
                     }
 
