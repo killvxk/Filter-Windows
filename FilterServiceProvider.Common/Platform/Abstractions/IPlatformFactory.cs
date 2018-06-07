@@ -1,5 +1,6 @@
 ﻿using System;
 using Citadel.Platform.Common.IPC;
+using Citadel.Platform.Common.Util;
 using CitadelService.Common.Configuration;
 using CitadelCore.Net.Proxy;
 
@@ -14,12 +15,14 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
         IIPCServer NewIPCServer();
         IIPCClient NewIPCClient();
 
-        IDnsEnforcement NewDnsEnforcement(IPolicyConfiguration configuration, NLog.Logger logger);
+        IDnsEnforcement NewDnsEnforcement(IPolicyConfiguration configuration, IAppLogger logger);
 
         ITrustManagement NewTrustManager();
 
         ProxyServer NewProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate);
 
         IAuthenticationStorage NewAuthenticationStorage();
+
+        IApplicationUpdater NewApplicationUpdater(bool is64bit);
     }
 }

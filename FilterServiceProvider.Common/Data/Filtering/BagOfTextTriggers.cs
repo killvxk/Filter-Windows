@@ -18,7 +18,7 @@ using FilterServiceProvider.Services;
 using NLog;
 using System.Diagnostics;
 using DistillNET;
-using Citadel.Core.Windows.Util;
+using Citadel.Platform.Common.Util;
 
 namespace CitadelService.Data.Filtering
 {
@@ -63,7 +63,7 @@ namespace CitadelService.Data.Filtering
         /// </summary>
         public BloomFilter<string> FirstWordFilter { get; set; }
 
-        private Logger m_logger;
+        private IAppLogger m_logger;
 
         /// <summary>
         /// Constructs a new BagOfTextTriggers.
@@ -78,7 +78,7 @@ namespace CitadelService.Data.Filtering
         /// <param name="useMemory">
         /// If true, the database will be created as a purely in-memory database.
         /// </param>
-        public BagOfTextTriggers(string dbAbsolutePath, bool overwrite = true, bool useMemory = false, Logger logger = null)
+        public BagOfTextTriggers(string dbAbsolutePath, bool overwrite = true, bool useMemory = false, IAppLogger logger = null)
         {
             m_logger = logger;
 

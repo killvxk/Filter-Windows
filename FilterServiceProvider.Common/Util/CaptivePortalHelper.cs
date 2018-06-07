@@ -1,4 +1,5 @@
 ﻿using Citadel.Core.Windows.Util;
+using Citadel.Platform.Common.Util;
 using FilterServiceProvider.Common.Platform;
 using FilterServiceProvider.Services;
 using System;
@@ -60,7 +61,7 @@ namespace FilterServiceProvider.Common.Util
         {
             get
             {
-                return PathProvider.GetAppDataFile("captive-portal-settings.dat");
+                return FilterProvider.Platform.Path.GetAppDataFile("captive-portal.settings");
             }
         }
 

@@ -8,8 +8,8 @@
 using NLog;
 using System;
 using System.Diagnostics;
-
-namespace Citadel.Core.Windows.Util
+ 
+namespace Citadel.Platform.Common.Util
 {
     public static class LoggerUtil
     {
@@ -27,7 +27,7 @@ namespace Citadel.Core.Windows.Util
         /// If any of the parameters supplied are invalid, the application will print this in debug
         /// information and simply exit. This method is meant explicitly to not throw.
         /// </remarks>
-        public static void RecursivelyLogException(Logger logger, Exception e)
+        public static void RecursivelyLogException(IAppLogger logger, Exception e)
         {
             if(logger == null || e == null)
             {
@@ -59,9 +59,10 @@ namespace Citadel.Core.Windows.Util
         /// function to avoid re-typing the log name everywhere. It offers no security or guarantee
         /// that the named log here will exist.
         /// </remarks>
-        public static Logger GetAppWideLogger()
+        public static IAppLogger GetAppWideLogger()
         {
-            return LogManager.GetLogger("Citadel");
+            return new ConsoleLogger();
+            //return LogManager.GetLogger("Citadel");
         }
     }
 }

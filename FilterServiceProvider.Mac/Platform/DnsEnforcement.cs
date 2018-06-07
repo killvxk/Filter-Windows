@@ -2,6 +2,7 @@
 using System.Threading.Tasks;
 using System.Collections.Generic;
 using CitadelService.Common.Configuration;
+using Citadel.Platform.Common.Util;
 using FilterServiceProvider.Common.Platform;
 using FilterServiceProvider.Common.Platform.Abstractions;
 
@@ -9,7 +10,7 @@ namespace FilterServiceProvider.Mac.Platform
 {
     public class DnsEnforcement : CommonDnsEnforcement
     {
-        public DnsEnforcement(IPolicyConfiguration configuration, NLog.Logger logger) : base(configuration, logger)
+        public DnsEnforcement(IPolicyConfiguration configuration, IAppLogger logger) : base(configuration, logger)
         {
             
         }

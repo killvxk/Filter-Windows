@@ -7,6 +7,7 @@
 
 using Citadel.Platform.Common.Extensions;
 using Citadel.Platform.Common.Types;
+using Citadel.Platform.Common.Util;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using FilterServiceProvider.Services;
 using Microsoft.Win32;
@@ -70,7 +71,7 @@ namespace Citadel.Core.Windows.Util
             { ServiceResource.AccountabilityNotify, "/api/v2/me/accountability" }
         };
 
-        private readonly Logger m_logger;
+        private readonly IAppLogger m_logger;
 
         private IAuthenticationStorage m_auth;
 

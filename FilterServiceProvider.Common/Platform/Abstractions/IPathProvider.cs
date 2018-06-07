@@ -10,5 +10,7 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
 {
     public interface IPathProvider
     {
+        string GetAppDataPath();
+        string GetAppDataFile(string fileName);
     }
 }

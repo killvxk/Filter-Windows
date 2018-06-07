@@ -25,6 +25,7 @@ using DistillNET;
 using CitadelService.Data.Filtering;
 using System.Collections.Concurrent;
 using FilterServiceProvider.Common.Platform;
+using Citadel.Platform.Common.Util;
 
 namespace CitadelService.Common.Configuration
 {
@@ -52,7 +53,7 @@ namespace CitadelService.Common.Configuration
 
         private static JsonSerializerSettings s_configSerializerSettings;
 
-        public DefaultPolicyConfiguration(IIPCServer server, NLog.Logger logger, ReaderWriterLockSlim filteringLock)
+        public DefaultPolicyConfiguration(IIPCServer server, IAppLogger logger, ReaderWriterLockSlim filteringLock)
         {
             m_ipcServer = server;
             m_logger = logger;
@@ -64,7 +65,7 @@ namespace CitadelService.Common.Configuration
         private IIPCServer m_ipcServer;
 
         // Not sure yet whether this will be provided by WindowsPlatformServices or a common service provider.
-        private NLog.Logger m_logger;
+        private IAppLogger m_logger;
 
         // Need to consolidate global stuff some how.
         private ReaderWriterLockSlim m_filteringRwLock;
@@ -95,13 +96,13 @@ namespace CitadelService.Common.Configuration
         {
 
 #if LOCAL_POLICY_CONFIGURATION
-            serverConfigFilePath = PathProvider.GetAppDataFile("server-cfg.json");
-            serverListDataFilePath = PathProvider.GetAppDataFile("server-a.dat");
+            serverConfigFilePath = FilterProvider.Platform.Path.GetAppDataFile("server-cfg.json");
+            serverListDataFilePath = FilterProvider.Platform.Path.GetAppDataFile("server-a.dat");
 #endif
 
             // cfg.json and data path? TODO FIXME
-            configFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "cfg.json");
-            listDataFilePath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "a.dat");
+            configFilePath = FilterProvider.Platform.Path.GetAppDataFile("cfg.json");
+            listDataFilePath = FilterProvider.Platform.Path.GetAppDataFile("a.dat");
 
             // Setup json serialization settings.
             s_configSerializerSettings = new JsonSerializerSettings();

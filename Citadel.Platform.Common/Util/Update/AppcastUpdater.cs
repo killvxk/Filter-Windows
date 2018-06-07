@@ -6,6 +6,7 @@
 */
 
 using Citadel.Platform.Common.Extensions;
+using Citadel.Platform.Common.Util;
 using NLog;
 using System;
 using System.IO;
@@ -13,7 +14,6 @@ using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Reflection;
-using System.ServiceModel.Syndication;
 using System.Threading.Tasks;
 using System.Xml;
 
@@ -25,11 +25,11 @@ namespace Citadel.Core.Windows.Util.Update
     /// return the highest available application upgrade if one could be found, or null of no better
     /// version than the current executing assembly could be found.
     /// </summary>
-    public class AppcastUpdater
+    /*public class AppcastUpdater
     {
         private Uri m_appcastLocationUri;
 
-        private Logger m_logger;
+        private IAppLogger m_logger;
 
         /// <summary>
         /// Constructs a new AppcastUpdater with the given URI, a URI to an appcast this class will
@@ -143,5 +143,5 @@ namespace Citadel.Core.Windows.Util.Update
 
             return bestAvailableUpdate;
         }
-    }
+    }*/
 }

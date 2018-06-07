@@ -38,6 +38,8 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
 
         IWlanInfo WlanInfo { get; }
 
+        IPathProvider Path { get; }
+
         /// <summary>
         /// The fingerprint to use to identify this particular computer.
         /// </summary>

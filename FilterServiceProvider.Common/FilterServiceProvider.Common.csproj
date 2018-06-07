@@ -9,6 +9,9 @@
     <Compile Remove="Properties\AssemblyInfo.cs" />
     <Compile Remove="Util\DnsEnforcement.cs" />
     <Compile Remove="Services\TrustManager.cs" />
+    <Compile Remove="Platform\PathProvider.cs" />
+    <Compile Remove="Platform\Abstractions\Updates\IApplicationUpdater.cs" />
+    <Compile Remove="Platform\Abstractions\Updates\CommonApplicationUpdater.cs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj" />

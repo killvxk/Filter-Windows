@@ -8,7 +8,7 @@
     <Compile Remove="Class1.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CloudVeil.CitadelCore" Version="1.4.1" />
+    <PackageReference Include="CloudVeil.CitadelCore" Version="1.4.5" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Net\" />

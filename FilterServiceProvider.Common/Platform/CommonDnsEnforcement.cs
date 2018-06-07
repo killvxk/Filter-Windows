@@ -13,6 +13,7 @@ using System.Threading.Tasks;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using FilterServiceProvider.Services;
 using FilterServiceProvider.Common.Util;
+using Citadel.Platform.Common.Util;
 
 namespace FilterServiceProvider.Common.Platform
 {
@@ -24,14 +25,14 @@ namespace FilterServiceProvider.Common.Platform
         /// </summary>
         private Timer m_dnsEnforcementTimer;
 
-        public CommonDnsEnforcement(IPolicyConfiguration configuration, NLog.Logger logger)
+        public CommonDnsEnforcement(IPolicyConfiguration configuration, IAppLogger logger)
         {
             m_logger = logger;
             m_configuration = configuration;
         }
 
         private object m_dnsEnforcementLock = new object();
-        protected NLog.Logger m_logger;
+        protected IAppLogger m_logger;
         protected IPolicyConfiguration m_configuration;
 
         #region DnsEnforcement.Enforce

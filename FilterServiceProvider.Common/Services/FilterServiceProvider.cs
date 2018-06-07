@@ -9,6 +9,7 @@ using Citadel.Platform.Common.Extensions;
 using Citadel.Platform.Common.Types;
 using Citadel.Platform.Common;
 using Citadel.Core.Windows.Util;
+using Citadel.Platform.Common.Util;
 using Citadel.IPC;
 using Citadel.IPC.Messages;
 using CitadelCore.Logging;
@@ -44,7 +45,6 @@ using System.Net.Http;
 using CitadelService.Common.Configuration;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using Citadel.Platform.Common.IPC;
-using Citadel.Core.Windows.Util.Update;
 using FilterServiceProvider.Common.Platform;
 
 namespace FilterServiceProvider.Services
@@ -180,7 +180,7 @@ namespace FilterServiceProvider.Services
         /// <summary>
         /// Logger. 
         /// </summary>
-        private Logger m_logger;
+        private IAppLogger m_logger;
 
         /// <summary>
         /// This BackgroundWorker object handles initializing the application off the UI thread.
@@ -221,9 +221,8 @@ namespace FilterServiceProvider.Services
         /// </summary>
         private Timer m_relaxedPolicyResetTimer;
 
-        private AppcastUpdater m_updater = null;
-
-        private ApplicationUpdate m_lastFetchedUpdate = null;
+        private IApplicationUpdater m_updater = null;
+        private IApplicationUpdate m_lastFetchedUpdate = null;
 
         private ReaderWriterLockSlim m_appcastUpdaterLock = new ReaderWriterLockSlim();
 
@@ -324,19 +323,9 @@ namespace FilterServiceProvider.Services
 
             try
             {
-                var bitVersionUri = string.Empty;
-                if (Environment.Is64BitProcess)
-                {
-                    bitVersionUri = "/update/winx64/update.xml";
-                }
-                else
-                {
-                    bitVersionUri = "/update/winx86/update.xml";
-                }
+                m_updater = PlatformFactory.NewApplicationUpdater(Environment.Is64BitProcess);
+                // var appUpdateInfoUrl = string.Format("{0}{1}", WebServiceUtil.Default.ServiceProviderApiPath, bitVersionUri);
 
-                var appUpdateInfoUrl = string.Format("{0}{1}", WebServiceUtil.Default.ServiceProviderApiPath, bitVersionUri);
-
-                m_updater = new AppcastUpdater(new Uri(appUpdateInfoUrl));
             }
             catch (Exception e)
             {
@@ -453,7 +442,7 @@ namespace FilterServiceProvider.Services
 
                             if (m_lastFetchedUpdate.IsRestartRequired)
                             {
-                                string restartFlagPath = PathProvider.GetAppDataFile("restart.flag");
+                                string restartFlagPath = Platform.Path.GetAppDataFile("restart.flag");
                                 using (StreamWriter writer = File.CreateText(restartFlagPath))
                                 {
                                     writer.Write("# This file left intentionally blank (tee-hee)\n");
@@ -461,7 +450,7 @@ namespace FilterServiceProvider.Services
                             }
 
                             // Save auth token when shutting down for update.
-                            string appDataPath = PathProvider.GetAppDataPath();
+                            string appDataPath = Platform.Path.GetAppDataPath();
 
                             try
                             {
@@ -769,7 +758,7 @@ namespace FilterServiceProvider.Services
             bool hadError = false;
             bool isAvailable = false;
 
-            string updateSettingsPath = PathProvider.GetAppDataFile("update.settings");
+            string updateSettingsPath = Platform.Path.GetAppDataFile("update.settings");
 
             string[] commandParts = null;
             if (File.Exists(updateSettingsPath))
@@ -2145,7 +2134,7 @@ namespace FilterServiceProvider.Services
 
         private void CleanupLogs()
         {
-            string directoryPath = PathProvider.GetAppDataFile("logs");
+            string directoryPath = Platform.Path.GetAppDataFile("logs");
             if (Directory.Exists(directoryPath))
             {
                 string[] files = Directory.GetFiles(directoryPath);

@@ -15,7 +15,7 @@ using System.Net.Http;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace Citadel.Core.Windows.Util.Update
+namespace Citadel.Platform.Common.Util.Update
 {
     public enum UpdateKind
     {
@@ -23,7 +23,7 @@ namespace Citadel.Core.Windows.Util.Update
         ZipFile
     }
 
-    public class ApplicationUpdate
+    /*public class WindowsApplicationUpdate : ApplicationUpdate
     {
         public DateTime DatePublished
         {
@@ -158,5 +158,5 @@ namespace Citadel.Core.Windows.Util.Update
             updaterStartupInfo.Arguments = UpdaterArguments;
             Process.Start(updaterStartupInfo);
         }
-    }
+    }*/
 }

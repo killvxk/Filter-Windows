@@ -14,6 +14,7 @@ namespace FilterServiceProvider.Mac.Services
             ProcessUtils = new ProcessUtils();
             InternetUtils = new InternetUtils();
             WlanInfo = new WlanInfo();
+            Path = new MacPathProvider();
         }
 
         public INetworkStatus NetworkStatus { get; set; }
@@ -27,6 +28,8 @@ namespace FilterServiceProvider.Mac.Services
         public string Fingerprint => NativeLib.GetSystemFingerprint();
 
         public IWlanInfo WlanInfo { get; set; }
+
+        public IPathProvider Path { get; set; }
 
         public void EnsureFirewallAccess()
         {
