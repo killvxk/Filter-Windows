@@ -345,7 +345,7 @@ namespace CitadelService.Common.Configuration
                             // Load all configured list files.
                             foreach (var listModel in Configuration.ConfiguredLists)
                             {
-                                var listEntry = zip.Entries.Where(pp => pp.FullName.OIEquals(listModel.RelativeListPath)).FirstOrDefault();
+                                var listEntry = zip.Entries.Where(pp => pp.FullName.Trim('/').OIEquals(listModel.RelativeListPath.Trim('/'))).FirstOrDefault();
                                 if (listEntry != null)
                                 {
                                     var thisListCategoryName = listModel.RelativeListPath.Substring(0, listModel.RelativeListPath.LastIndexOfAny(new[] { '/', '\\' }) + 1) + Path.GetFileNameWithoutExtension(listModel.RelativeListPath);
