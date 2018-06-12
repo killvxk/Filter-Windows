@@ -14,16 +14,9 @@ namespace CitadelCore.Unix.Net.Proxy
 {
     public class UnixProxyServer : ProxyServer
     {
-        public UnixProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate)
-            :base(firewallCheck, messageBegin, messageEnd, badCertificate) {
-            
-        }
-
-        public UnixProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate,
-                              int httpPortV4, int httpsPortV4, int httpPortV6, int httpsPortV6)
-            : base(firewallCheck, messageBegin, messageEnd, badCertificate, httpPortV4, httpsPortV4, httpPortV6, httpsPortV6)
+        public UnixProxyServer(ProxyOptions options) : base(options)
         {
-
+            
         }
 
         // Unix diverter need not exist.

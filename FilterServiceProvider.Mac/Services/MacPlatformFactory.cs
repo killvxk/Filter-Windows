@@ -41,9 +41,14 @@ namespace FilterServiceProvider.Mac.Services
             return new IPCServer();
         }
 
-        public ProxyServer NewProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate)
+        public ProxyServer NewProxyServer(ProxyOptions options)
         {
-            return new UnixProxyServer(firewallCheck, messageBegin, messageEnd, badCertificate, 14300, 14301, 14302, 14303);
+            options.HttpV4Port = 14300;
+            options.HttpsV4Port = 14301;
+            options.HttpV6Port = 14302;
+            options.HttpsV6Port = 14303;
+
+            return new UnixProxyServer(options);
         }
 
         public ITrustManagement NewTrustManager()

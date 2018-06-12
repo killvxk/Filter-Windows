@@ -1,0 +1,73 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.0</TargetFramework>
+    <Authors>Jesse Nicholson, Kent Friesen</Authors>
+    <Company>CloudVeil Technology, Inc.</Company>
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
+    <PackageRequireLicenseAcceptance>true</PackageRequireLicenseAcceptance>
+    <Copyright>Copyright 2018 (c) Jesse Nicholson and CloudVeil Technology, Inc.. All rights reserved.</Copyright>
+    <PackageLicenseUrl>https://www.mozilla.org/en-US/MPL/2.0/</PackageLicenseUrl>
+    <PackageProjectUrl>https://github.com/cloudveiltech/FilterCore</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/cloudveiltech/CitadelCore</RepositoryUrl>
+    <PackageTags>proxy filtering content-filtering transparent-proxy</PackageTags>
+    <PackageReleaseNotes>Adds a new SSL exemptions API for programs to bypass SSL errors.</PackageReleaseNotes>
+    <Description>Transparent filtering HTTP/S and Websocket/WebsocketSecure proxy. Forked from https://github.com/TechnikEmpire/CitadelCore</Description>
+    <Version>2.0.2</Version>
+    <AssemblyVersion>2.0.2.0</AssemblyVersion>
+    <FileVersion>2.0.2.0</FileVersion>
+    <Product>CitadelCore</Product>
+    <PackageId>CloudVeil.CitadelCore</PackageId>    
+    <PackOnBuild>true</PackOnBuild>
+    <PackageVersion>2.0.12</PackageVersion>
+    <Owners>Jesse Nicholson, CloudVeil Technology, Inc.</Owners>
+    <Summary>Forked from https://github.com/TechnikEmpire/CitadelCore</Summary>
+    <Title>FilterCore</Title>
+  </PropertyGroup>
+
+  <ItemGroup Label="dotnet pack instructions">
+    <Content Include="build\*.targets">
+      <Pack>true</Pack>
+      <PackagePath>build\</PackagePath>
+    </Content>
+  </ItemGroup>
+
+  <Target Name="CollectRuntimeOutputs" BeforeTargets="_GetPackageFiles">
+    <!-- Collect these items inside a target that runs after build but before packaging. -->
+    <ItemGroup>
+      <Content Include="$(OutputPath)\*.pdb;">
+        <Pack>true</Pack>
+        <PackagePath>build\</PackagePath>
+      </Content>
+    </ItemGroup>
+  </Target>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <DocumentationFile>bin\Debug\netstandard2.0\CitadelCore.xml</DocumentationFile>
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <DocumentationFile>bin\Release\netstandard2.0\CitadelCore.xml</DocumentationFile>
+    <LangVersion>7.1</LangVersion>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Net\Middleware\**" />
+    <EmbeddedResource Remove="Net\Middleware\**" />
+    <None Remove="Net\Middleware\**" />
+    <Compile Remove="Net\ConnectionAdapters\StreamExtended\CustomBufferedPeekStream.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Portable.BouncyCastle" Version="1.8.1.3" />
+    <PackageReference Include="System.Net.WebSockets.Client.Managed" Version="1.0.20" />
+  </ItemGroup>
+
+
+  <ItemGroup>
+    <ProjectReference Include="..\StreamExtended\StreamExtended.csproj" />
+  </ItemGroup>
+</Project>

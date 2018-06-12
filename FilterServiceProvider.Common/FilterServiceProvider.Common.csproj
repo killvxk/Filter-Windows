@@ -28,4 +28,16 @@
     <Folder Include="Platform\" />
     <Folder Include="Platform\Abstractions\" />
   </ItemGroup>
+  <ItemGroup>
+    <None Remove="Resources\BadCertPage.html" />
+    <None Remove="Resources\FireFoxUserCFG.txt" />
+    <None Remove="Resources\UserLicense.txt" />
+    <None Remove="Resources\BlockedPage.html" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\BadCertPage.html" />
+    <EmbeddedResource Include="Resources\FireFoxUserCFG.txt" />
+    <EmbeddedResource Include="Resources\UserLicense.txt" />
+    <EmbeddedResource Include="Resources\BlockedPage.html" />
+  </ItemGroup>
 </Project>

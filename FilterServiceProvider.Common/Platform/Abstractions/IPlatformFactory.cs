@@ -19,7 +19,7 @@ namespace FilterServiceProvider.Common.Platform.Abstractions
 
         ITrustManagement NewTrustManager();
 
-        ProxyServer NewProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate);
+        ProxyServer NewProxyServer(ProxyOptions options);
 
         IAuthenticationStorage NewAuthenticationStorage();
 

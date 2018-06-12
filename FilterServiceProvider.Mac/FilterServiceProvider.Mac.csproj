@@ -13,5 +13,12 @@
   <ItemGroup>
     <Folder Include="Services\" />
     <Folder Include="Platform\" />
+    <Folder Include="Resources\" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Remove="Resources\mac.pac" />
+  </ItemGroup>
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\mac.pac" />
   </ItemGroup>
 </Project>

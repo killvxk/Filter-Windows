@@ -15,6 +15,7 @@ namespace CitadelService.Util
             try
             {
                 //var blockedPagePackURI = "CitadelService.Resources.BlockedPage.html";
+
                 using (var resourceStream = Assembly.GetExecutingAssembly().GetManifestResourceStream(resourceName))
                 {
                     if (resourceStream != null && resourceStream.CanRead)

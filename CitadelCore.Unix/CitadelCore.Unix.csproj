@@ -8,10 +8,10 @@
     <Compile Remove="Class1.cs" />
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="CloudVeil.CitadelCore" Version="1.4.5" />
-  </ItemGroup>
-  <ItemGroup>
     <Folder Include="Net\" />
     <Folder Include="Net\Proxy\" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\CitadelCore\CitadelCore.csproj" />
   </ItemGroup>
 </Project>

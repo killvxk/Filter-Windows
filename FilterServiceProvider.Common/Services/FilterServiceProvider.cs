@@ -5,6 +5,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+using Microsoft.AspNetCore.Http;
 using Citadel.Platform.Common.Extensions;
 using Citadel.Platform.Common.Types;
 using Citadel.Platform.Common;
@@ -313,6 +314,8 @@ namespace FilterServiceProvider.Services
                     }
                 } // else let them continue. They'll have to enter their password if this if isn't taken.
             }
+
+            m_trustManagement = PlatformFactory.NewTrustManager();
 
             // Hook the shutdown/logoff event.
             //SystemEvents.SessionEnding += OnAppSessionEnding;
@@ -852,8 +855,8 @@ namespace FilterServiceProvider.Services
             LogTime("Starting InitEngine()");
 
             // Get our blocked HTML page
-            m_blockedHtmlPage = ResourceStreams.Get("CitadelService.Resources.BlockedPage.html");
-            m_badSslHtmlPage = ResourceStreams.Get("CitadelService.Resources.BadCertPage.html");
+            m_blockedHtmlPage = ResourceStreams.Get("FilterServiceProvider.Common.Resources.BlockedPage.html");
+            m_badSslHtmlPage = ResourceStreams.Get("FilterServiceProvider.Common.Resources.BadCertPage.html");
 
             if (m_blockedHtmlPage == null)
             {
@@ -870,7 +873,14 @@ namespace FilterServiceProvider.Services
             // Init the engine with our callbacks, the path to the ca-bundle, let it pick whatever
             // ports it wants for listening, and give it our total processor count on this machine as
             // a hint for how many threads to use.
-            m_filteringEngine = PlatformFactory.NewProxyServer(OnAppFirewallCheck, OnHttpMessageBegin, OnHttpMessageEnd, OnBadCertificate);
+            m_filteringEngine = PlatformFactory.NewProxyServer(new ProxyOptions()
+            {
+                MessageBeginCallback = OnHttpMessageBegin,
+                MessageEndCallback = OnHttpMessageEnd,
+                BadCertificateCallback = OnBadCertificate,
+                FirewallCheckCallback = OnAppFirewallCheck,
+                ServerRequestCallback = OnServerRequest
+            });
 
             // Setup general info, warning and error events.
             LoggerProxy.Default.OnInfo += EngineOnInfo;
@@ -1335,6 +1345,40 @@ namespace FilterServiceProvider.Services
             return false;
         }
 
+        private void OnServerRequest(HttpContext context)
+        {
+            m_logger.Info("Processing server request.");
+
+            string[] parts = context.Request.Path.ToString().Split(new char[] { '/' }, StringSplitOptions.RemoveEmptyEntries);
+
+            // Rather than create a platform specific hook for OnServerRequest, we just let the local machine access our embedded resources.
+            // That way, we can put an auto-proxy discovery file in the mac service and be able to access it. Not the cleanest arch, but it works.
+            if (parts[0] == "resources")
+            {
+                string resourceName = parts[1];
+
+                byte[] bytes = ResourceStreams.Get(resourceName);
+
+                if(bytes == null) {
+                    context.Response.StatusCode = (int)HttpStatusCode.NotFound;
+                    using (var writer = new StreamWriter(context.Response.Body))
+                    {
+                        writer.WriteLine("404 Not Found.");
+                    }
+
+                    return;
+                }
+                else
+                {
+                    context.Response.StatusCode = (int)HttpStatusCode.OK;
+                    context.Response.Body.Write(bytes, 0, bytes.Length);
+                    context.Response.ContentLength = bytes.Length;
+
+                    return;
+                }
+            }
+        }
+
         private void OnHttpMessageBegin(Uri requestUrl, string headers, byte[] body, MessageType msgType, MessageDirection msgDirection, out ProxyNextAction nextAction, out string customBlockResponseContentType, out byte[] customBlockResponse)
         {
             nextAction = ProxyNextAction.AllowAndIgnoreContent;
@@ -1596,7 +1640,6 @@ namespace FilterServiceProvider.Services
             var len = filters.Count;
             for (int i = 0; i < len; ++i)
             {
-                Console.WriteLine(filters[i].IsException);
                 if (m_policyConfiguration.CategoryIndex.GetIsCategoryEnabled(filters[i].CategoryId) && filters[i].IsMatch(request, headers))
                 {
                     matched = filters[i];
@@ -1646,6 +1689,11 @@ namespace FilterServiceProvider.Services
 
         private byte[] getBlockPageWithResolvedTemplates(Uri requestUri, int matchingCategory, UriInfo info, BlockType blockType = BlockType.None, string triggerCategory = "")
         {
+            if (m_blockedHtmlPage == null)
+            {
+                return UTF8Encoding.Default.GetBytes("<html><head><title>Default Block Page</title></head><body>Site blocked</body></html>");
+            }
+
             string blockPageTemplate = UTF8Encoding.Default.GetString(m_blockedHtmlPage);
 
             // Produces something that looks like "www.badsite.com/example?arg=0" instead of "http://www.badsite.com/example?arg=0"

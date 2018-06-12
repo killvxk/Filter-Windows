@@ -46,16 +46,6 @@ namespace FilterServiceProvider.Mac.Services
             // TODO: Implement.
         }
 
-        public IAuthenticationStorage NewAuthenticationStorage()
-        {
-            throw new NotImplementedException();
-        }
-
-        public ProxyServer NewProxyServer(FirewallCheckCallback firewallCheck, MessageBeginCallback messageBegin, MessageEndCallback messageEnd, BadCertificateCallback badCertificate)
-        {
-            return new CitadelCore.Unix.Net.Proxy.UnixProxyServer(firewallCheck, messageBegin, messageEnd, badCertificate);
-        }
-
         public bool OnAppFirewallCheck(string appAbsolutePath)
         {
             return true;
