@@ -14,8 +14,12 @@ namespace CitadelService.Util
 {
     public class Accountability
     {
+        private IAppLogger m_logger;
+
         public Accountability()
         {
+            m_logger = LoggerUtil.GetAppWideLogger();
+
             ReportList = new List<BlockInfo>();
         }
 
@@ -33,7 +37,14 @@ namespace CitadelService.Util
 
             HttpStatusCode statusCode;
 
-            WebServiceUtil.Default.SendResource(ServiceResource.AccountabilityNotify, formData, out statusCode);
+            try
+            {
+                WebServiceUtil.Default.SendResource(ServiceResource.AccountabilityNotify, formData, out statusCode);
+            }
+            catch(Exception ex)
+            {
+                LoggerUtil.RecursivelyLogException(m_logger, ex);
+            }
         }
     }
 }

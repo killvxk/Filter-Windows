@@ -6,7 +6,6 @@
 */
 
 using System.Net.WebSockets.Managed;
-using Microsoft.AspNetCore.Http;
 using System;
 using System.Threading.Tasks;
 using CitadelCore.Net.Proxy;
@@ -15,7 +14,6 @@ using System.Text;
 using System.Threading;
 using CitadelCore.Net.Http;
 using CitadelCore.Extensions;
-using Microsoft.AspNetCore.WebSockets.Protocol;
 
 namespace CitadelCore.Net.Handlers
 {
@@ -25,7 +23,7 @@ namespace CitadelCore.Net.Handlers
     /// while providing an opportunity for users to inspect and optionally filter and modifiy
     /// requests and responses at different stages of the transaction.
     /// </summary>
-    internal class FilterWebsocketHandler : AbstractFilterResponseHandler
+    /*internal class FilterWebsocketHandler : AbstractFilterResponseHandler
     {
         public FilterWebsocketHandler(MessageBeginCallback messageBeginCallback, MessageEndCallback messageEndCallback) : base(messageBeginCallback, messageEndCallback)
         {
@@ -130,22 +128,6 @@ namespace CitadelCore.Net.Handlers
 
                 // Create, via acceptor, the client websocket. This is the local machine's websocket.
                 var wsClient = await context.WebSockets.AcceptWebSocketAsync(serverSubProtocol);
-                
-                /*
-                TODO - Much of this is presently lost to us because the socket
-                we get from AcceptWebSocketAsync is a mostly internal implementation
-                that is NOT a ClientWebSocket.
-
-                Ideally we would xfer all such properties from the client to our proxy
-                client socket.
-
-                wsServer.Options.ClientCertificates = wsClient.Options.ClientCertificates;
-                wsServer.Options.Cookies = wsClient.Options.Cookies;
-                wsServer.Options.Credentials = wsClient.Options.Credentials;
-                wsServer.Options.KeepAliveInterval = wsClient.Options.KeepAliveInterval;
-                wsServer.Options.Proxy = wsClient.Options.Proxy;
-                wsServer.Options.UseDefaultCredentials = wsClient.Options.UseDefaultCredentials;
-                */
 
                 LoggerProxy.Default.Info(string.Format("Connecting websocket to {0}", wsUri.AbsoluteUri));
 
@@ -211,5 +193,5 @@ namespace CitadelCore.Net.Handlers
                 LoggerProxy.Default.Error(wshe);
             }
         }
-    }
+    }*/
 }

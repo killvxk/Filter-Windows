@@ -7,6 +7,7 @@
 
 using System;
 using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace Citadel.IPC.Messages
 {
@@ -40,7 +41,9 @@ namespace Citadel.IPC.Messages
             }
             catch { }
 
-            if(procId != 0)
+            // We aren't going to enforce this invalid operation on non-windows platforms right now.
+            // They are much pickier when it comes to privileges, and I want to develop it running in non-privileged mode.
+            if(RuntimeInformation.IsOSPlatform(OSPlatform.Windows) && procId != 0)
             {
                 throw new InvalidOperationException("This IPC message type is designed exclusively for use by the server side of the IPC channel. The server side should always be a service, which would be isolated in session 0. You are constructing this class from a non-session 0 process.");
             }

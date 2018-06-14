@@ -5,7 +5,6 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
-using Microsoft.AspNetCore.Http;
 using Citadel.Platform.Common.Extensions;
 using Citadel.Platform.Common.Types;
 using Citadel.Platform.Common;
@@ -47,6 +46,7 @@ using CitadelService.Common.Configuration;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using Citadel.Platform.Common.IPC;
 using FilterServiceProvider.Common.Platform;
+using Titanium.Web.Proxy.Http;
 
 namespace FilterServiceProvider.Services
 {
@@ -846,6 +846,8 @@ namespace FilterServiceProvider.Services
             return isAvailable;
         }
 
+        private readonly SemaphoreSlim @lock = new SemaphoreSlim(0);
+
         /// <summary>
         /// Sets up the filtering engine, calls establish trust with firefox, sets up callbacks for
         /// classification and firewall checks, but does not start the engine.
@@ -875,12 +877,26 @@ namespace FilterServiceProvider.Services
             // a hint for how many threads to use.
             m_filteringEngine = PlatformFactory.NewProxyServer(new ProxyOptions()
             {
-                MessageBeginCallback = OnHttpMessageBegin,
-                MessageEndCallback = OnHttpMessageEnd,
+                BeforeRequest = OnBeforeRequest,
+                AfterResponse = OnAfterResponse,
                 BadCertificateCallback = OnBadCertificate,
                 FirewallCheckCallback = OnAppFirewallCheck,
-                ServerRequestCallback = OnServerRequest
+                //ServerRequestCallback = OnServerRequest
             });
+
+            m_filteringEngine.InternalProxyServer.ExceptionFunc = async (exception) =>
+            {
+                await @lock.WaitAsync();
+
+                try
+                {
+                    LoggerUtil.RecursivelyLogException(m_logger, exception);
+                }
+                finally
+                {
+                    @lock.Release();
+                }
+            };
 
             // Setup general info, warning and error events.
             LoggerProxy.Default.OnInfo += EngineOnInfo;
@@ -1345,7 +1361,7 @@ namespace FilterServiceProvider.Services
             return false;
         }
 
-        private void OnServerRequest(HttpContext context)
+        /*private void OnServerRequest(HttpContext context)
         {
             m_logger.Info("Processing server request.");
 
@@ -1377,16 +1393,62 @@ namespace FilterServiceProvider.Services
                     return;
                 }
             }
+        }*/
+
+        private class FilterContext
+        {
+            public byte[] CustomBlockResponse { get; set; }
+            public string BlockResponseContentType { get; set; }
+
+            public ProxyNextAction NextAction { get; set; }
         }
 
-        private void OnHttpMessageBegin(Uri requestUrl, string headers, byte[] body, MessageType msgType, MessageDirection msgDirection, out ProxyNextAction nextAction, out string customBlockResponseContentType, out byte[] customBlockResponse)
+        private async Task OnBeforeRequest(object sender, Titanium.Web.Proxy.EventArguments.SessionEventArgs args)
+        {
+            if(args.UserData == null)
+            {
+                args.UserData = new FilterContext();
+            }
+            else if(!(args.UserData is FilterContext))
+            {
+                args.UserData = new FilterContext();
+            }
+
+            FilterContext context = args.UserData as FilterContext;
+
+            byte[] customBlockResponse = null;
+            string blockResponseContentType = null;
+            ProxyNextAction nextAction = ProxyNextAction.AllowAndIgnoreContent;
+
+            BeforeRequestDecision(sender, args, out customBlockResponse, out blockResponseContentType, out nextAction);
+
+            if (nextAction == ProxyNextAction.DropConnection)
+            {
+                var response = customBlockResponse == null ? new Response() : new Response(customBlockResponse);
+                response.StatusCode = customBlockResponse == null ? 204 : 200;
+
+                if (customBlockResponse != null)
+                {
+                    response.Headers.AddHeader("Content-Type", blockResponseContentType);
+                }
+
+                args.Respond(response);
+                return;
+            }
+
+            // Pass the next action code to the AfterResponse handler.
+            context.NextAction = nextAction;
+        }
+
+        private void BeforeRequestDecision(object sender, Titanium.Web.Proxy.EventArguments.SessionEventArgs args, out byte[] customBlockResponse, out string customBlockResponseContentType, out ProxyNextAction nextAction)
         {
             nextAction = ProxyNextAction.AllowAndIgnoreContent;
-            customBlockResponseContentType = null;
-            customBlockResponse = null;
 
-            // Don't allow filtering if our user has been denied access and they
-            // have not logged back in.
+            customBlockResponse = null;
+            customBlockResponseContentType = null;
+
+            Uri requestUrl = args.WebSession.Request.RequestUri;
+
             if (m_ipcServer != null && m_ipcServer.WaitingForAuth)
             {
                 return;
@@ -1396,19 +1458,19 @@ namespace FilterServiceProvider.Services
 
             try
             {
-                var parsedHeaders = ParseHeaders(headers);
+                var headers = args.WebSession.Request.Headers;
 
                 string contentType = null;
                 bool isHtml = false;
                 bool isJson = false;
                 bool hasReferer = true;
 
-                if ((parsedHeaders["Referer"]) == null)
+                if (!headers.HeaderExists("Referer"))
                 {
                     hasReferer = false;
                 }
 
-                if ((contentType = parsedHeaders["Content-Type"]) != null)
+                if((contentType = headers.GetFirstHeader("Content-Type")?.Value) != null)
                 {
                     // This is the start of a response with a content type that we want to inspect.
                     // Flag it for inspection once done. It will later call the OnHttpMessageEnd callback.
@@ -1417,10 +1479,10 @@ namespace FilterServiceProvider.Services
                     if (isHtml || isJson)
                     {
                         // Let's only inspect responses, not user-sent payloads (request data).
-                        if (msgDirection == MessageDirection.Response)
+                        /*if (msgDirection == MessageDirection.Response)
                         {
                             nextAction = ProxyNextAction.AllowButRequestContentInspection;
-                        }
+                        }*/
                     }
                 }
 
@@ -1457,7 +1519,7 @@ namespace FilterServiceProvider.Services
 
                         filters = filterCollection.GetWhitelistFiltersForDomain(requestUrl.Host).Result;
 
-                        if (CheckIfFiltersApply(filters, requestUrl, parsedHeaders, out matchingFilter, out matchCategory))
+                        if (CheckIfFiltersApply(filters, requestUrl, headers, out matchingFilter, out matchCategory))
                         {
                             var mappedCategory = categoriesMap.Values.Where(xx => xx.CategoryId == matchCategory).FirstOrDefault();
 
@@ -1477,7 +1539,7 @@ namespace FilterServiceProvider.Services
 
                     filters = filterCollection.GetWhitelistFiltersForDomain().Result;
 
-                    if (CheckIfFiltersApply(filters, requestUrl, parsedHeaders, out matchingFilter, out matchCategory))
+                    if (CheckIfFiltersApply(filters, requestUrl, headers, out matchingFilter, out matchCategory))
                     {
                         var mappedCategory = categoriesMap.Values.Where(xx => xx.CategoryId == matchCategory).FirstOrDefault();
 
@@ -1500,7 +1562,7 @@ namespace FilterServiceProvider.Services
                     {
                         filters = filterCollection.GetFiltersForDomain(requestUrl.Host).Result;
 
-                        if (CheckIfFiltersApply(filters, requestUrl, parsedHeaders, out matchingFilter, out matchCategory))
+                        if (CheckIfFiltersApply(filters, requestUrl, headers, out matchingFilter, out matchCategory))
                         {
                             OnRequestBlocked(matchCategory, BlockType.Url, requestUrl, matchingFilter.OriginalRule);
                             nextAction = ProxyNextAction.DropConnection;
@@ -1526,7 +1588,7 @@ namespace FilterServiceProvider.Services
 
                     filters = filterCollection.GetFiltersForDomain().Result;
 
-                    if (CheckIfFiltersApply(filters, requestUrl, parsedHeaders, out matchingFilter, out matchCategory))
+                    if (CheckIfFiltersApply(filters, requestUrl, headers, out matchingFilter, out matchCategory))
                     {
                         OnRequestBlocked(matchCategory, BlockType.Url, requestUrl, matchingFilter.OriginalRule);
                         nextAction = ProxyNextAction.DropConnection;
@@ -1578,11 +1640,49 @@ namespace FilterServiceProvider.Services
             customResponse = getBadSslPageWithResolvedTemplates(requestUrl, Encoding.UTF8.GetString(m_badSslHtmlPage));
         }
 
-        private void OnHttpMessageEnd(Uri requestUrl, string headers, byte[] body, MessageType msgType, MessageDirection msgDirection, out bool shouldBlock, out string customBlockResponseContentType, out byte[] customBlockResponse)
+        private async Task OnAfterResponse(object sender, Titanium.Web.Proxy.EventArguments.SessionEventArgs args)
         {
+            FilterContext context = null;
+            if(args.UserData != null && args.UserData is FilterContext)
+            {
+                context = (FilterContext)args.UserData;
+            }
+
+            switch(context.NextAction)
+            {
+                case ProxyNextAction.AllowAndIgnoreContentAndResponse:
+                    return;
+            }
+
+            byte[] customBlockResponse = context.CustomBlockResponse;
+            string customBlockResponseContentType = context.BlockResponseContentType;
+            bool shouldBlock = false;
+
+            AfterResponseDecision(sender, args, out customBlockResponse, out customBlockResponseContentType, out shouldBlock);
+
+            if (shouldBlock)
+            {
+                var response = customBlockResponse == null ? new Response() : new Response(customBlockResponse);
+                response.StatusCode = customBlockResponse == null ? 204 : 200;
+
+                if (customBlockResponse != null)
+                {
+                    response.Headers.AddHeader("Content-Type", customBlockResponseContentType);
+                }
+
+                args.Respond(response);
+                return;
+            }
+        }
+        private void AfterResponseDecision(object sender, Titanium.Web.Proxy.EventArguments.SessionEventArgs args, out byte[] customBlockResponse, out string customBlockResponseContentType, out bool shouldBlock)
+        {
+            byte[] body = args.GetResponseBody().Result;
+            Uri requestUrl = args.WebSession.Request.RequestUri;
+
             shouldBlock = false;
-            customBlockResponseContentType = null;
+
             customBlockResponse = null;
+            customBlockResponseContentType = null;
 
             // Don't allow filtering if our user has been denied access and they
             // have not logged back in.
@@ -1595,11 +1695,11 @@ namespace FilterServiceProvider.Services
             // try to classify the content of the response payload, if there is any.
             try
             {
-                var parsedHeaders = ParseHeaders(headers);
+                var headers = args.WebSession.Response.Headers;
 
                 string contentType = null;
 
-                if ((contentType = parsedHeaders["Content-Type"]) != null)
+                if((contentType = headers.GetFirstHeader("Content-Type")?.Value) != null)
                 {
                     contentType = contentType.ToLower();
 
@@ -1632,15 +1732,22 @@ namespace FilterServiceProvider.Services
             }
         }
 
-        private bool CheckIfFiltersApply(List<UrlFilter> filters, Uri request, NameValueCollection headers, out UrlFilter matched, out short matchedCategory)
+        private bool CheckIfFiltersApply(List<UrlFilter> filters, Uri request, HeaderCollection headers, out UrlFilter matched, out short matchedCategory)
         {
             matchedCategory = -1;
             matched = null;
 
+            // TODO: Speed improvement when you have time, use HeaderCollection in DistillNET, rather than using this little shim.
+            var headerCollection = new NameValueCollection();
+            foreach(var header in headers.GetAllHeaders())
+            {
+                headerCollection.Add(header.Name, header.Value);
+            }
+
             var len = filters.Count;
             for (int i = 0; i < len; ++i)
             {
-                if (m_policyConfiguration.CategoryIndex.GetIsCategoryEnabled(filters[i].CategoryId) && filters[i].IsMatch(request, headers))
+                if (m_policyConfiguration.CategoryIndex.GetIsCategoryEnabled(filters[i].CategoryId) && filters[i].IsMatch(request, headerCollection))
                 {
                     matched = filters[i];
                     matchedCategory = filters[i].CategoryId;

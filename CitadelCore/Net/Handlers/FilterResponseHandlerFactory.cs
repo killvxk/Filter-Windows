@@ -7,7 +7,6 @@
 
 using CitadelCore.Net.Http;
 using CitadelCore.Net.Proxy;
-using Microsoft.AspNetCore.Http;
 
 namespace CitadelCore.Net.Handlers
 {
@@ -37,36 +36,11 @@ namespace CitadelCore.Net.Handlers
 
         public BadCertificateCallback BadCertificateCallback { get; set; }
 
-        public OnServerRequestCallback ServerRequestCallback { get; set; }
+        //public OnServerRequestCallback ServerRequestCallback { get; set; }
 
         public ICertificateExemptions CertificateExemptions
         {
             get; set;
-        }
-
-        public AbstractFilterResponseHandler GetHandler(HttpContext context)
-        {
-            if(context.WebSockets.IsWebSocketRequest)
-            {
-                return HandleWebsocket(context);
-            }
-
-            return HandleHttp(context);
-        }
-
-        private AbstractFilterResponseHandler HandleWebsocket(HttpContext context)
-        {
-            return new FilterWebsocketHandler(MessageBeginCallback, MessageEndCallback);
-        }
-
-        private AbstractFilterResponseHandler HandleHttp(HttpContext context)
-        {
-            return new FilterHttpResponseHandler(MessageBeginCallback, MessageEndCallback, BadCertificateCallback);
-        }
-
-        private AbstractFilterResponseHandler HandleUnknownProtocol(HttpContext context)
-        {
-            return new FilterPassthroughResponseHandler(MessageBeginCallback, MessageEndCallback);
         }
     }
 }

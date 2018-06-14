@@ -9,15 +9,14 @@ using CitadelCore.Logging;
 using CitadelCore.Diversion;
 using CitadelCore.Net.ConnectionAdapters;
 using CitadelCore.Net.Handlers;
-using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Diagnostics;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Server.Kestrel.Core;
+using Titanium.Web.Proxy;
 using System;
 using System.Collections.Generic;
 using System.Net;
+using System.Threading;
 using System.Threading.Tasks;
+using Titanium.Web.Proxy.Models;
+using Titanium.Web.Proxy.Exceptions;
 
 namespace CitadelCore.Net.Proxy
 {
@@ -30,10 +29,10 @@ namespace CitadelCore.Net.Proxy
         public static ProxyServer Default { get; private set; }
 
         // This will handle SNI and handshaking.
-        private TlsSniConnectionAdapter m_tlsConnAdapter;
+        //private TlsSniConnectionAdapter m_tlsConnAdapter;
 
-        private IPEndPoint m_v4HttpListenerEp = new IPEndPoint(IPAddress.Any, 0);
-        private IPEndPoint m_v4HttpsListenerEp = new IPEndPoint(IPAddress.Any, 0);
+        private ProxyEndPoint m_v4HttpListenerEp = null;
+        private ProxyEndPoint m_v4HttpsListenerEp = null;
 
         private IPEndPoint m_v6HttpListenerEp = new IPEndPoint(IPAddress.IPv6Any, 0);
         private IPEndPoint m_v6HttpsListenerEp = new IPEndPoint(IPAddress.IPv6Any, 0);
@@ -42,7 +41,7 @@ namespace CitadelCore.Net.Proxy
         /// List of proxying web servers generated for this host. Currently there's always going to
         /// be two, one for IPV4 and one for IPV6.
         /// </summary>
-        private List<IWebHost> m_hosts = new List<IWebHost>();
+        //private List<IWebHost> m_hosts = new List<IWebHost>();
 
         private IDiverter m_diverter;
 
@@ -50,7 +49,7 @@ namespace CitadelCore.Net.Proxy
         /// Gets the IPV4 endpoint where HTTP connections are being received. This will be ANY:0
         /// until Start has been called.
         /// </summary>
-        public IPEndPoint V4HttpEndpoint
+        public ProxyEndPoint V4HttpEndpoint
         {
             get
             {
@@ -62,7 +61,7 @@ namespace CitadelCore.Net.Proxy
         /// Gets the IPV4 endpoint where HTTPS connections are being received. This will be ANY:0
         /// until Start has been called.
         /// </summary>
-        public IPEndPoint V4HttpsEndpoint
+        public ProxyEndPoint V4HttpsEndpoint
         {
             get
             {
@@ -121,8 +120,10 @@ namespace CitadelCore.Net.Proxy
         private object m_startStopLock = new object();
 
         private ProxyOptions m_proxyOptions;
+        private Titanium.Web.Proxy.ProxyServer m_proxyServer;
 
         public ProxyOptions ProxyOptions { get { return m_proxyOptions; } }
+        public Titanium.Web.Proxy.ProxyServer InternalProxyServer { get { return m_proxyServer; } }
 
         /// <summary>
         /// Initialize the proxy server. See <see cref="ProxyOptions"/> for more information on parameters.
@@ -130,79 +131,51 @@ namespace CitadelCore.Net.Proxy
         /// <param name="options">See <see cref="ProxyOptions"/></param>
         public ProxyServer(ProxyOptions options)
         {
-            try
-            {
-                m_tlsConnAdapter = new TlsSniConnectionAdapter();
-            }
-            catch (Exception ex)
-            {
-                LoggerProxy.Default.Error(ex);
-            }
+            var proxyServer = new Titanium.Web.Proxy.ProxyServer();
+            proxyServer.CertificateManager.TrustRootCertificate();
+
+            proxyServer.BeforeRequest += options.BeforeRequest;
+            proxyServer.AfterResponse += options.AfterResponse;
+
+            var explicitEndPoint = new ExplicitProxyEndPoint(IPAddress.Any, options.HttpV4Port, false);
+            var explicitEndPointHttps = new ExplicitProxyEndPoint(IPAddress.Any, options.HttpsV4Port, true);
+
+            // TODO: Add a property to ProxyOptions for Explicit end point vs transparent end point.
+
+            // TODO: If needed, do this!
+            //explicitEndPointHttps.BeforeTunnelConnectRequest
+
+            proxyServer.AddEndPoint(explicitEndPoint);
+            proxyServer.AddEndPoint(explicitEndPointHttps);
+
+            m_proxyServer = proxyServer;
 
             m_fwCallback = options.FirewallCheckCallback ?? throw new ArgumentException("The firewall callback MUST be defined.");
 
-            FilterResponseHandlerFactory.Default.MessageBeginCallback = options.MessageBeginCallback
+            /*FilterResponseHandlerFactory.Default.MessageBeginCallback = options.MessageBeginCallback
                 ?? throw new ArgumentException("The message begin callback MUST be defined.");
 
             FilterResponseHandlerFactory.Default.MessageEndCallback = options.MessageEndCallback
-                ?? throw new ArgumentException("The message end callback MUST be defined.");
+                ?? throw new ArgumentException("The message end callback MUST be defined.");*/
 
             FilterResponseHandlerFactory.Default.BadCertificateCallback = options.BadCertificateCallback;
             FilterResponseHandlerFactory.Default.CertificateExemptions = options.CertificateExemptions;
 
-            FilterResponseHandlerFactory.Default.ServerRequestCallback = options.ServerRequestCallback;
+            //FilterResponseHandlerFactory.Default.ServerRequestCallback = options.ServerRequestCallback;
 
-            m_v4HttpListenerEp = new IPEndPoint(IPAddress.Any, options.HttpV4Port);
-            m_v4HttpsListenerEp = new IPEndPoint(IPAddress.Any, options.HttpsV4Port);
-            m_v6HttpListenerEp = new IPEndPoint(IPAddress.Any, options.HttpV6Port);
-            m_v6HttpsListenerEp = new IPEndPoint(IPAddress.Any, options.HttpsV6Port);
+            // TODO: Once again, we need to differentiate between explicit proxy implementations
+            // and transparent proxy implementations.
+            m_v4HttpListenerEp = explicitEndPoint;
+            m_v4HttpsListenerEp = explicitEndPointHttps;
+            /*m_v6HttpListenerEp = new IPEndPoint(IPAddress.Any, options.HttpV6Port);
+            m_v6HttpsListenerEp = new IPEndPoint(IPAddress.Any, options.HttpsV6Port);*/
 
             m_proxyOptions = options;
 
             Default = this;
         }
 
-        [Obsolete("Use ProxyServer(ProxyOptions) instead to aid readability")]
-        public ProxyServer(FirewallCheckCallback firewallCallback, MessageBeginCallback messageBeginCallback, MessageEndCallback messageEndCallback, BadCertificateCallback badCertificateCallback = null)
-        {
-            try
-            {
-                m_tlsConnAdapter = new TlsSniConnectionAdapter();
-            }
-            catch (Exception ex)
-            {
-                LoggerProxy.Default.Error(ex);
-            }
-
-            m_v4HttpListenerEp = new IPEndPoint(IPAddress.Any, 0);
-            m_v4HttpsListenerEp = new IPEndPoint(IPAddress.Any, 0);
-            m_v6HttpListenerEp = new IPEndPoint(IPAddress.IPv6Any, 0);
-            m_v6HttpsListenerEp = new IPEndPoint(IPAddress.IPv6Any, 0);
-
-            if(firewallCallback == null)
-            {
-                throw new ArgumentException("The firewall callback MUST be defined.");
-            }
-
-            if(messageBeginCallback == null)
-            {
-                throw new ArgumentException("The message begin callback MUST be defined.");
-            }
-
-            if(messageEndCallback == null)
-            {
-                throw new ArgumentException("The message end callback MUST be defined.");
-            }
-            
-            m_fwCallback = firewallCallback;
-            FilterResponseHandlerFactory.Default.MessageBeginCallback = messageBeginCallback;
-            FilterResponseHandlerFactory.Default.MessageEndCallback = messageEndCallback;
-            FilterResponseHandlerFactory.Default.BadCertificateCallback = badCertificateCallback;
-
-            m_proxyOptions = new ProxyOptions();
-
-            Default = this;
-        }
+        private readonly SemaphoreSlim @lock = new SemaphoreSlim(1);
 
         /// <summary>
         /// Starts the proxy server on both IPV4 and IPV6 address space. 
@@ -216,13 +189,14 @@ namespace CitadelCore.Net.Proxy
                     return;
                 }
 
-                m_hosts = new List<IWebHost>()
-                {
-                    CreateHost(false),
-                    CreateHost(true)
-                };
+                m_proxyServer.Start();
 
-                m_diverter = CreateDiverter(
+                foreach (var endPoint in m_proxyServer.ProxyEndPoints)
+                {
+                    Console.WriteLine($"Listening @ {endPoint.IpAddress}:{endPoint.Port}");
+                }
+                // TODO: Only initialize m_diverter if using transparent proxy.
+                /*m_diverter = CreateDiverter(
                         m_v4HttpListenerEp,
                         m_v4HttpsListenerEp,
                         m_v6HttpListenerEp,
@@ -234,7 +208,7 @@ namespace CitadelCore.Net.Proxy
                     return m_fwCallback.Invoke(procPath);
                 };
 
-                m_diverter.Start(0);
+                m_diverter.Start(0);*/
 
                 m_running = true;
             }           
@@ -272,155 +246,11 @@ namespace CitadelCore.Net.Proxy
                     return;
                 }
 
-                foreach(var host in m_hosts)
-                {
-                    host.StopAsync().Wait();
-                }
-
-                m_hosts = new List<IWebHost>();
-
-                m_diverter.Stop();
+                m_proxyServer.Stop();
+                // TODO: Handle m_diverter according to transparent vs explicit proxying.
+                //m_diverter.Stop();
 
                 m_running = false;
-            }
-        }
-
-        /// <summary>
-        /// Creates a web server that will bind to local addresses to any available port. 
-        /// </summary>
-        /// <param name="isV6">
-        /// Whether or not this server should be bound to a v6 address. We have yet to determine if
-        /// we can even grab some internal of kestrel that will allow us to manipulate the listener
-        /// socket endpoint to force it into dual mode, so we use this option instead and generate
-        /// two hosts.
-        /// </param>
-        /// <returns>
-        /// An IWebHost that will transparently proxy all requests. 
-        /// </returns>
-        private IWebHost CreateHost(bool isV6)
-        {
-            WebHostBuilder ipWebhostBuilder = new WebHostBuilder();
-
-            ListenOptions httpListenOptions = null;
-            ListenOptions httpsListenOptions = null;
-            
-            ipWebhostBuilder.UseLibuv(opts =>
-            {
-                opts.ThreadCount = Environment.ProcessorCount;
-            });
-
-            // Use Kestrel server.
-            ipWebhostBuilder.UseKestrel(opts =>
-            {
-
-                opts.Limits.MaxRequestBodySize = null;
-                opts.Limits.MaxRequestBufferSize = null;
-                opts.Limits.MaxConcurrentConnections = null;
-                opts.Limits.MaxConcurrentUpgradedConnections = null;                
-                
-                // Listen for HTTPS connections. Keep a reference to the options object so we can get
-                // the chosen port number after we call start.
-                opts.Listen(isV6 ? IPAddress.IPv6Any : IPAddress.Any, isV6 ? m_proxyOptions.HttpsV6Port : m_proxyOptions.HttpsV4Port, listenOpts =>
-                {
-                    // Plug in our TLS connection adapter. This adapter will handle SNI parsing and
-                    // certificate spoofing based on the SNI value.
-                    listenOpts.ConnectionAdapters.Add(m_tlsConnAdapter);
-
-                    // Who doesn't love to kick that old Nagle to the curb?
-                    listenOpts.NoDelay = true;
-                    httpsListenOptions = listenOpts;
-                });
-
-                // Listen for HTTP connections. Keep a reference to the options object so we can get
-                // the chosen port number after we call start.
-                opts.Listen(isV6 ? IPAddress.IPv6Any : IPAddress.Any, isV6 ? m_proxyOptions.HttpV6Port : m_proxyOptions.HttpV4Port, listenOpts =>
-                {
-                    // Who doesn't love to kick that old Nagle to the curb?
-                    listenOpts.NoDelay = true;
-                    httpListenOptions = listenOpts;
-                });
-
-            });
-            
-            // Configures how we handle requests and errors, etc.            
-            ipWebhostBuilder.UseStartup<Startup>();
-            
-            // Build host. You needed this comment.
-            var vHost = ipWebhostBuilder.Build();
-            
-            // Start the host. You definitely needed this. It's not until we start the host that the
-            // listener endpoints will be resolved. We need that info so we know where our proxy
-            // server is running, so we can divert packets to it.
-            vHost.Start();
-
-            // Since this is post vHost.Start(), we can now grab the EP of the connection.
-            if(isV6)
-            {
-                m_v6HttpListenerEp = httpListenOptions.IPEndPoint;
-                m_v6HttpsListenerEp = httpsListenOptions.IPEndPoint;
-            }
-            else
-            {
-                m_v4HttpListenerEp = httpListenOptions.IPEndPoint;
-                m_v4HttpsListenerEp = httpsListenOptions.IPEndPoint;
-
-                LoggerProxy.Default.Info($"http listener = {m_v4HttpListenerEp.Address}:{m_v4HttpListenerEp.Port}");
-                LoggerProxy.Default.Info($"https listener = {m_v4HttpsListenerEp.Address}:{m_v4HttpsListenerEp.Port}");
-            }
-
-            return vHost;
-        }
-
-        /// <summary>
-        /// Startup class for IWebHosts. This configures the host for important things like how to
-        /// handle errors and how to handle requests.
-        /// </summary>
-        private class Startup
-        {
-            public Startup(IHostingEnvironment env)
-            {
-                
-            }
-
-            public void Configure(IApplicationBuilder app)
-            {
-                // We proxy websockets, so enable this.
-                app.UseWebSockets();
-
-                // Exception handler. Not yet sure what to do here.
-                app.UseExceptionHandler(
-                    options =>
-                    {
-                        options.Run(
-                            async context =>
-                            {
-                                context.Response.StatusCode = (int)HttpStatusCode.InternalServerError;
-                                context.Response.ContentType = "text/html";
-
-                                var ex = context.Features.Get<IExceptionHandlerFeature>();
-
-                                if(ex != null)
-                                {
-                                    var err = $"<h1>Error: {ex.Error.Message}</h1>{ex.Error.StackTrace }";
-                                    await context.Response.WriteAsync(err).ConfigureAwait(false);
-                                }
-                            }
-                        );
-                    }
-                );
-                
-                // Global request handler. Terminates middleware, aka this is the final handler and
-                // middleware will come before this. In the end, we simply ask our factory to give us
-                // the appropriate handler given what the context us, and then let it return a task
-                // we give back to kestrel to see through.
-                app.Run(context =>
-                {
-                    return Task.Run(async () =>
-                    {
-                        var handler = FilterResponseHandlerFactory.Default.GetHandler(context);
-                        await handler.Handle(context);
-                    });
-                });
             }
         }
     }

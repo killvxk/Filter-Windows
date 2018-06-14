@@ -6,6 +6,7 @@ using CitadelService.Common.Configuration;
 using Citadel.Platform.Common.Util;
 using FilterServiceProvider.Common.Platform.Abstractions;
 using FilterServiceProvider.Mac.Platform;
+using Filter.Platform.Mac.IPC;
 
 namespace FilterServiceProvider.Mac.Services
 {
@@ -33,12 +34,12 @@ namespace FilterServiceProvider.Mac.Services
 
         public IIPCClient NewIPCClient()
         {
-            return new IPCClient();
+            return new MacIPCClient();
         }
 
         public IIPCServer NewIPCServer()
         {
-            return new IPCServer();
+            return new MacIPCServer();
         }
 
         public ProxyServer NewProxyServer(ProxyOptions options)

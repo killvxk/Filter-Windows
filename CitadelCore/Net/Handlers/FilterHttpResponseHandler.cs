@@ -8,7 +8,6 @@
 using CitadelCore.Logging;
 using CitadelCore.Net.Http;
 using CitadelCore.Net.Proxy;
-using Microsoft.AspNetCore.Http;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -28,7 +27,7 @@ namespace CitadelCore.Net.Handlers
     /// providing an opportunity for users to inspect and optionally filter and modifiy requests and
     /// responses at different stages of the transaction.
     /// </summary>
-    internal class FilterHttpResponseHandler : AbstractFilterResponseHandler
+    /*internal class FilterHttpResponseHandler : AbstractFilterResponseHandler
     {
         private static readonly DateTime s_Epoch = new DateTime(1970, 1, 1);
 
@@ -130,7 +129,7 @@ namespace CitadelCore.Net.Handlers
 
         private List<int> ports;
 
-        public override async Task Handle(HttpContext context)
+        /*public override async Task Handle(HttpContext context)
         {
             try
             {
@@ -710,5 +709,5 @@ namespace CitadelCore.Net.Handlers
                 await ms.CopyToAsync(context.Response.Body, 4096, context.RequestAborted);
             }
         }
-    }
+    }*/
 }

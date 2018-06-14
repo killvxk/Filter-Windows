@@ -1,6 +1,5 @@
 ﻿using CitadelCore.Net.Handlers;
 using CitadelCore.Net.Proxy;
-using Microsoft.AspNetCore.Http;
 using System;
 using System.Threading.Tasks;
 
@@ -12,9 +11,9 @@ namespace CitadelCore.Net.Handlers
         {
         }
 
-        public override Task Handle(HttpContext context)
+        /*public override Task Handle(HttpContext context)
         {
             throw new NotImplementedException();
-        }
+        }*/
     }
 }

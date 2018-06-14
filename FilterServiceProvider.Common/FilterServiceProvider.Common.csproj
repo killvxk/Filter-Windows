@@ -14,7 +14,7 @@
     <Compile Remove="Platform\Abstractions\Updates\CommonApplicationUpdater.cs" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj" />
+    <ProjectReference Include="..\Citadel.Platform.Common\Filter.Platform.Common.csproj" />
     <ProjectReference Include="..\CitadelCore.Unix\CitadelCore.Unix.csproj" />
   </ItemGroup>
   <ItemGroup>

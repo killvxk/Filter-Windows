@@ -8,7 +8,6 @@
 using System;
 using System.Net.Http;
 using System.Security.Cryptography.X509Certificates;
-using Microsoft.AspNetCore.Http;
 
 namespace CitadelCore.Net.Proxy
 {
@@ -161,5 +160,5 @@ namespace CitadelCore.Net.Proxy
     /// <summary>
     /// This gets called when a request message comes to the proxy port with the same port and host information as what the proxy is on.
     /// </summary>
-    public delegate void OnServerRequestCallback(HttpContext message);
+    //public delegate void OnServerRequestCallback(HttpContext message);
 }

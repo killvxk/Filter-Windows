@@ -8,7 +8,8 @@
   <ItemGroup>
     <ProjectReference Include="..\FilterServiceProvider.Common\FilterServiceProvider.Common.csproj" />
     <ProjectReference Include="..\CitadelCore.Unix\CitadelCore.Unix.csproj" />
-    <ProjectReference Include="..\Citadel.Platform.Common\Citadel.Platform.Common.csproj" />
+    <ProjectReference Include="..\Citadel.Platform.Common\Filter.Platform.Common.csproj" />
+    <ProjectReference Include="..\Filter.Platform.Mac\Filter.Platform.Mac.csproj" />
   </ItemGroup>
   <ItemGroup>
     <Folder Include="Services\" />

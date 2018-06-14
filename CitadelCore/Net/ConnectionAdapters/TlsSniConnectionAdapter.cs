@@ -8,8 +8,6 @@
 using CitadelCore.Crypto;
 using CitadelCore.Extensions;
 using CitadelCore.Logging;
-using Microsoft.AspNetCore.Http.Features;
-using Microsoft.AspNetCore.Server.Kestrel.Core.Adapter.Internal;
 using StreamExtended;
 using StreamExtended.Network;
 using System;
@@ -29,7 +27,7 @@ namespace CitadelCore.Net.ConnectionAdapters
     /// read on initial connection. The class then also handles certificate spoofing, and finally
     /// attemtping to complete the TLS handshake with the downstream client.
     /// </summary>
-    internal class TlsSniConnectionAdapter : IConnectionAdapter
+    /*internal class TlsSniConnectionAdapter : IConnectionAdapter
     {
         public bool IsHttps => true;
 
@@ -280,5 +278,5 @@ namespace CitadelCore.Net.ConnectionAdapters
                 throw new NotSupportedException();
             }
         }
-    }
+    }*/
 }

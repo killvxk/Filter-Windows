@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Text;
+using Titanium.Web.Proxy.EventArguments;
 
 namespace CitadelCore.Net.Proxy
 {
@@ -18,12 +19,12 @@ namespace CitadelCore.Net.Proxy
         /// they begin. Users also have the power to direct how the proxy will continue to handle the
         /// overall transaction that this message belongs to.
         /// </summary>
-        public MessageBeginCallback MessageBeginCallback { get; set; }
+        public AsyncEventHandler<SessionEventArgs> BeforeRequest { get; set; }
 
         /// <summary>
         /// Message end callback enables users to inspect and filter messages once they have completed. 
         /// </summary>
-        public MessageEndCallback MessageEndCallback { get; set; }
+        public AsyncEventHandler<SessionEventArgs> AfterResponse { get; set; }
 
         /// <summary>
         /// This gets called by the handler function so that the user can provide a custom response.
@@ -33,7 +34,7 @@ namespace CitadelCore.Net.Proxy
         /// <summary>
         /// Use this callback if you want to provide a local management server for the app.
         /// </summary>
-        public OnServerRequestCallback ServerRequestCallback { get; set; }
+        //public OnServerRequestCallback ServerRequestCallback { get; set; }
 
         /// <summary>
         /// Provides the user with the opportunity to implement a custom certificate exemption store.

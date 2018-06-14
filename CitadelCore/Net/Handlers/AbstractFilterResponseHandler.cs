@@ -6,7 +6,6 @@
 */
 
 using CitadelCore.Net.Proxy;
-using Microsoft.AspNetCore.Http;
 using System.Threading.Tasks;
 
 namespace CitadelCore.Net.Handlers
@@ -38,6 +37,6 @@ namespace CitadelCore.Net.Handlers
             m_onBadCertificate = onBadCertificate;
         }
 
-        public abstract Task Handle(HttpContext context);
+        //public abstract Task Handle(HttpContext context);
     }
 }
