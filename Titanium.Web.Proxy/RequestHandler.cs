@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Net;
 #if NETCOREAPP2_1
@@ -58,6 +59,9 @@ namespace Titanium.Web.Proxy
             CancellationTokenSource cancellationTokenSource, string httpsConnectHostname, ConnectRequest connectRequest,
             Task<TcpServerConnection> prefetchConnectionTask = null)
         {
+            Stopwatch sw = new Stopwatch();
+            sw.Start();
+
             var prefetchTask = prefetchConnectionTask;
             TcpServerConnection connection = null;
             bool closeServerConnection = false;
@@ -298,6 +302,10 @@ namespace Titanium.Web.Proxy
                         closeServerConnection);
 
                 await tcpConnectionFactory.Release(prefetchTask, closeServerConnection);
+
+                sw.Stop();
+
+                Console.WriteLine($"Titanium.Web.Proxy HTTP session took {sw.ElapsedMilliseconds}");
             }
         }
 

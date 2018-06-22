@@ -1449,6 +1449,8 @@ namespace FilterServiceProvider.Services
 
             Uri requestUrl = args.WebSession.Request.RequestUri;
 
+            //Console.WriteLine($"original url = {args.WebSession.Request.OriginalUrl} {requestUrl} {args.WebSession.Request.Url}");
+
             if (m_ipcServer != null && m_ipcServer.WaitingForAuth)
             {
                 return;
@@ -2684,6 +2686,7 @@ namespace FilterServiceProvider.Services
             
             lock (m_cleanShutdownLock)
             {
+                
                 if (!m_cleanShutdownComplete)
                 {
                     m_ipcServer.Dispose();

@@ -247,6 +247,9 @@ namespace CitadelCore.Net.Proxy
                 }
 
                 m_proxyServer.Stop();
+                m_proxyServer.Dispose();
+                m_proxyServer = null;
+
                 // TODO: Handle m_diverter according to transparent vs explicit proxying.
                 //m_diverter.Stop();
 
