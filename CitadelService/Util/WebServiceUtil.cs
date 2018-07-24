@@ -9,6 +9,8 @@ using Citadel.Core.Extensions;
 using Citadel.Core.Windows.Util.Net;
 using Microsoft.Win32;
 using NLog;
+using NodaTime;
+using NodaTime.Text;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -37,7 +39,8 @@ namespace Citadel.Core.Windows.Util
         RevokeToken,
         RetrieveToken,
         BypassRequest,
-        AccountabilityNotify
+        AccountabilityNotify,
+        ServerTime
     };
 
     public delegate void GenericWebServiceUtilDelegate();
@@ -66,7 +69,8 @@ namespace Citadel.Core.Windows.Util
             { ServiceResource.RevokeToken, "/api/v2/me/revoketoken" },
             { ServiceResource.RetrieveToken, "/api/v2/user/retrievetoken" },
             { ServiceResource.BypassRequest, "/api/v2/me/bypass" },
-            { ServiceResource.AccountabilityNotify, "/api/v2/me/accountability" }
+            { ServiceResource.AccountabilityNotify, "/api/v2/me/accountability" },
+            { ServiceResource.ServerTime, "/api/v2/me/time" }
         };
 
         private readonly Logger m_logger;
@@ -714,6 +718,30 @@ namespace Citadel.Core.Windows.Util
             }
 
             return null;
+        }
+
+        public ZonedDateTime? GetServerTime()
+        {
+            HttpStatusCode statusCode;
+            byte[] response = RequestResource(ServiceResource.ServerTime, out statusCode);
+
+            if(statusCode != HttpStatusCode.OK)
+            {
+                return null;
+            }
+
+            string timeString = Encoding.UTF8.GetString(response);
+
+            ParseResult<ZonedDateTime> result = ZonedDateTimePattern.GeneralFormatOnlyIso.Parse(timeString);
+
+            if(result.Success)
+            {
+                return result.Value;
+            }
+            else
+            {
+                return null;
+            }
         }
 
         /// <summary>

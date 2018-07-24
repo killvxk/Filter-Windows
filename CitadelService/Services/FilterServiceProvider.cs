@@ -50,6 +50,7 @@ using System.Net.Http;
 using CitadelService.Common.Configuration;
 
 using FirewallAction = CitadelCore.Net.Proxy.FirewallAction;
+using NodaTime;
 
 namespace CitadelService.Services
 {
@@ -1329,7 +1330,7 @@ namespace CitadelService.Services
             // Support for whitelisted apps like Android Studio\bin\jre\java.exe
             foreach (string app in list)
             {
-                if (app.Contains(Path.DirectorySeparatorChar) && appAbsolutePath.EndsWith(app))
+                if (app.Contains(Path.DirectorySeparatorChar) && appAbsolutePath.EndsWith(app, StringComparison.OrdinalIgnoreCase))
                 {
                     return true;
                 }
@@ -1488,8 +1489,63 @@ namespace CitadelService.Services
             return false;
         }
 
+        private object m_serverTimeLock = new object();
+        private ZonedDateTime? m_lastServerTime = null;
+        private Stopwatch m_sinceLastServerTime = new Stopwatch();
+
         private void OnHttpMessageBegin(Uri requestUrl, string headers, byte[] body, MessageType msgType, MessageDirection msgDirection, out ProxyNextAction nextAction, out string customBlockResponseContentType, out byte[] customBlockResponse)
         {
+            lock (m_serverTimeLock)
+            {
+                var userTimezone = m_policyConfiguration.Configuration.UserTimezone;
+
+                if (m_lastServerTime == null)
+                {
+                    m_lastServerTime = WebServiceUtil.Default.GetServerTime();
+
+                    DateTimeZone zone = null;
+
+                    try
+                    {
+                        zone = userTimezone == null ? DateTimeZoneProviders.Tzdb.GetSystemDefault() : DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimezone);
+                        zone = zone ?? DateTimeZoneProviders.Tzdb.GetSystemDefault(); // Coalesce makes sure that we didn't have an invalid provider ID.
+                    }
+                    catch
+                    {
+                        zone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
+                    }
+
+                    if (m_lastServerTime.HasValue)
+                    {
+                        m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
+                    }
+
+                    m_sinceLastServerTime.Restart();
+                }
+                else if (m_sinceLastServerTime.Elapsed > new TimeSpan(0, 30, 0))
+                {
+                    var task = new Task(() =>
+                    {
+                        lock (m_serverTimeLock)
+                        {
+                            m_lastServerTime = WebServiceUtil.Default.GetServerTime();
+
+                            DateTimeZone zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(m_policyConfiguration.Configuration.UserTimezone)
+                                ?? DateTimeZoneProviders.Tzdb.GetSystemDefault();
+
+                            if(m_lastServerTime.HasValue)
+                            {
+                                m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
+                            }
+
+                            m_sinceLastServerTime.Restart();
+                        }
+                    });
+
+                    task.Start();
+                }
+            }
+
             nextAction = ProxyNextAction.AllowAndIgnoreContent;
             customBlockResponseContentType = null;
             customBlockResponse = null;
@@ -1504,7 +1560,7 @@ namespace CitadelService.Services
             bool readLocked = false;
 
             try
-            {                
+            {
                 var parsedHeaders = ParseHeaders(headers);
 
                 string contentType = null;
@@ -1530,6 +1586,43 @@ namespace CitadelService.Services
                         {
                             nextAction = ProxyNextAction.AllowButRequestContentInspection;
                         }
+                    }
+                }
+
+                if (m_policyConfiguration.Configuration.IsTimeRestrictionEnabled)
+                {
+                    // Get current time.
+                    ZonedDateTime currentTime;
+
+                    if (m_lastServerTime.HasValue)
+                    {
+                        currentTime = m_lastServerTime.Value.Plus(Duration.FromTimeSpan(m_sinceLastServerTime.Elapsed));
+                    }
+                    else
+                    {
+                        currentTime = ZonedDateTime.FromDateTimeOffset(DateTimeOffset.Now);
+                    }
+
+                    // Now that we have the current time, get time restrictions range from configuration and compare
+                    // our current time against it.
+                    if (m_policyConfiguration.Configuration.TimeRestrictionRange.IsTimeOfDayInRange(currentTime.TimeOfDay))
+                    {
+                        m_logger.Info("Request blocked due to time restrictions");
+
+                        if (isHtml || hasReferer == false)
+                        {
+                            // Only send HTML block page if we know this is a response of HTML we're blocking, or
+                            // if there is no referer (direct navigation).
+                            customBlockResponseContentType = "text/html";
+                            customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, 0, null, BlockType.TimeRestriction);
+                        }
+                        else
+                        {
+                            customBlockResponseContentType = string.Empty;
+                            customBlockResponse = null;
+                        }
+
+                        return;
                     }
                 }
 
@@ -1852,6 +1945,10 @@ namespace CitadelService.Services
                 {
                     case BlockType.None:
                         matching_category = "unknown reason";
+                        break;
+
+                    case BlockType.TimeRestriction:
+                        matching_category = "no internet allowed at this hour";
                         break;
 
                     case BlockType.ImageClassification:

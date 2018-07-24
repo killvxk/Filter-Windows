@@ -43,7 +43,8 @@ namespace Citadel.IPC.Messages
         /// <summary>
         /// Placeholder for default conditions (such as first initialization of variables)
         /// </summary>
-        None
+        None,
+        TimeRestriction
     }
 
     /// <summary>

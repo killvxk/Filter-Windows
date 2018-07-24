@@ -6,6 +6,7 @@
 */
 
 using Citadel.Core.Data.Serialization;
+using CitadelService.Data.Time;
 using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
@@ -118,6 +119,22 @@ namespace CitadelService.Data.Models
         } = Timeout.InfiniteTimeSpan;
 
         /// <summary>
+        /// Specify whether this user has time restrictions enabled for his policy.
+        /// </summary>
+        public bool IsTimeRestrictionEnabled { get; set; }
+
+        /// <summary>
+        /// This is the object representation of a string time range.
+        /// </summary>
+        [JsonConverter(typeof(StringToTimeRangeConverter))]
+        public TimeRange TimeRestrictionRange { get; set; }
+
+        /// <summary>
+        /// TZ database identifier for us to use in order to check the user's actual time in comparison to what they have set locally.
+        /// </summary>
+        public string UserTimezone { get; set; }
+        
+        /// <summary>
         /// The number of times the user may request relaxed/alternate filtering in a given day.
         /// </summary>
         public int BypassesPermitted
@@ -127,7 +144,7 @@ namespace CitadelService.Data.Models
         } = 0;
 
         /// <summary>
-        /// The number of times the user has been granted a relaxed/anternate filtering policy in a
+        /// The number of times the user has been granted a relaxed/alternate filtering policy in a
         /// given day.
         /// </summary>
         [JsonIgnore]
