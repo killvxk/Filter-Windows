@@ -93,8 +93,8 @@ namespace CitadelService.Common.Configuration
         {
 
 #if LOCAL_POLICY_CONFIGURATION
-            serverConfigFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "cfg.json");
-            serverListDataFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "a.dat");
+            serverConfigFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "server-cfg.json");
+            serverListDataFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "CloudVeil", "server-a.dat");
 #endif
 
             // cfg.json and data path? TODO FIXME
@@ -125,6 +125,7 @@ namespace CitadelService.Common.Configuration
 #if LOCAL_POLICY_CONFIGURATION
             if(!File.Exists(filePath) || new FileInfo(filePath).Length == 0)
             {
+                m_logger.Info("File path does not exist {0}", filePath);
                 return false;
             }
 
@@ -146,6 +147,7 @@ namespace CitadelService.Common.Configuration
                 {
                     byte[] bt = sec.ComputeHash(fs);
                     var lHash = BitConverter.ToString(bt).Replace("-", "");
+                    m_logger.Info($"Verifying {sumCheck.ToString()} - {lHash} :: {rHash}");
 
                     if (!lHash.OIEquals(rHash))
                     {
@@ -213,8 +215,11 @@ namespace CitadelService.Common.Configuration
 #if LOCAL_POLICY_CONFIGURATION
             if(VerifyConfiguration() == true)
             {
+                m_logger.Info("Configuration verified.");
                 return false;
             }
+
+            m_logger.Info("Got new local policy configuration.");
 
             var configBytes = File.ReadAllBytes(serverConfigFilePath);
 

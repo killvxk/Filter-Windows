@@ -674,22 +674,15 @@ namespace Citadel.Core.Windows.Util
                         code = (HttpStatusCode)intCode;
 
                         // Auth failure means re-log EXCEPT when requesting deactivation.
-                        if((intCode == 401 || intCode == 403) && resource != ServiceResource.DeactivationRequest)
+                        if ((intCode == 401 || intCode == 403) && resource != ServiceResource.DeactivationRequest)
                         {
                             WebServiceUtil.Default.AuthToken = string.Empty;
                             m_logger.Info("RequestResource2: Authorization failed.");
                             AuthTokenRejected?.Invoke();
                         }
-                        else if(intCode > 399 && intCode <= 499 && resource != ServiceResource.DeactivationRequest)
+                        else if (intCode > 399 && intCode <= 499 && resource != ServiceResource.DeactivationRequest)
                         {
                             m_logger.Info("Error occurred in RequestResource: {0}", intCode);
-                        }
-
-                        using(Stream data = response.GetResponseStream())
-                        using(var reader = new StreamReader(data))
-                        {
-                            string text = reader.ReadToEnd();
-                            m_logger.Error(text);
                         }
                     }
                 }

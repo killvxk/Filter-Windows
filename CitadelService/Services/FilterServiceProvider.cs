@@ -1573,55 +1573,69 @@ namespace CitadelService.Services
 
         private void OnHttpMessageBegin(Uri requestUrl, string headers, byte[] body, MessageType msgType, MessageDirection msgDirection, out ProxyNextAction nextAction, out string customBlockResponseContentType, out byte[] customBlockResponse)
         {
-            lock (m_serverTimeLock)
+            try
             {
-                var userTimezone = m_policyConfiguration.Configuration.UserTimezone;
-
-                if (m_lastServerTime == null)
+                lock (m_serverTimeLock)
                 {
-                    m_lastServerTime = WebServiceUtil.Default.GetServerTime();
+                    var userTimezone = m_policyConfiguration.Configuration.UserTimezone;
 
-                    DateTimeZone zone = null;
+                    if (m_lastServerTime == null)
+                    {
+                        m_lastServerTime = WebServiceUtil.Default.GetServerTime();
 
-                    try
-                    {
-                        zone = userTimezone == null ? DateTimeZoneProviders.Tzdb.GetSystemDefault() : DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimezone);
-                        zone = zone ?? DateTimeZoneProviders.Tzdb.GetSystemDefault(); // Coalesce makes sure that we didn't have an invalid provider ID.
-                    }
-                    catch
-                    {
-                        zone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
-                    }
-
-                    if (m_lastServerTime.HasValue)
-                    {
-                        m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
-                    }
-
-                    m_sinceLastServerTime.Restart();
-                }
-                else if (m_sinceLastServerTime.Elapsed > new TimeSpan(0, 30, 0))
-                {
-                    var task = new Task(() =>
-                    {
-                        lock (m_serverTimeLock)
+                        // If we can't get server time, fall back on local client time.
+                        if(m_lastServerTime == null)
                         {
-                            m_lastServerTime = WebServiceUtil.Default.GetServerTime();
-
-                            DateTimeZone zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(m_policyConfiguration.Configuration.UserTimezone)
-                                ?? DateTimeZoneProviders.Tzdb.GetSystemDefault();
-
-                            if(m_lastServerTime.HasValue)
-                            {
-                                m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
-                            }
-
+                            m_lastServerTime = ZonedDateTime.FromDateTimeOffset(DateTimeOffset.Now);
                             m_sinceLastServerTime.Restart();
                         }
-                    });
 
-                    task.Start();
+                        DateTimeZone zone = null;
+
+                        try
+                        {
+                            zone = userTimezone == null ? DateTimeZoneProviders.Tzdb.GetSystemDefault() : DateTimeZoneProviders.Tzdb.GetZoneOrNull(userTimezone);
+                            zone = zone ?? DateTimeZoneProviders.Tzdb.GetSystemDefault(); // Coalesce makes sure that we didn't have an invalid provider ID.
+                        }
+                        catch
+                        {
+                            zone = DateTimeZoneProviders.Tzdb.GetSystemDefault();
+                        }
+
+                        if (m_lastServerTime.HasValue)
+                        {
+                            m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
+                        }
+
+                        m_sinceLastServerTime.Restart();
+                    }
+                    else if (m_sinceLastServerTime.Elapsed > new TimeSpan(0, 30, 0))
+                    {
+                        var task = new Task(() =>
+                        {
+                            lock (m_serverTimeLock)
+                            {
+                                m_lastServerTime = WebServiceUtil.Default.GetServerTime();
+
+                                DateTimeZone zone = DateTimeZoneProviders.Tzdb.GetZoneOrNull(m_policyConfiguration.Configuration.UserTimezone)
+                                    ?? DateTimeZoneProviders.Tzdb.GetSystemDefault();
+
+                                if (m_lastServerTime.HasValue)
+                                {
+                                    m_lastServerTime = m_lastServerTime.Value.WithZone(zone);
+                                }
+
+                                m_sinceLastServerTime.Restart();
+                            }
+                        });
+
+                        task.Start();
+                    }
                 }
+            }
+            catch(Exception ex)
+            {
+
             }
 
             nextAction = ProxyNextAction.AllowAndIgnoreContent;
@@ -1669,6 +1683,7 @@ namespace CitadelService.Services
 
                 if (m_policyConfiguration.Configuration.IsTimeRestrictionEnabled)
                 {
+
                     // Get current time.
                     ZonedDateTime currentTime;
 
@@ -1686,6 +1701,7 @@ namespace CitadelService.Services
                     if (m_policyConfiguration.Configuration.TimeRestrictionRange.IsTimeOfDayInRange(currentTime.TimeOfDay))
                     {
                         m_logger.Info("Request blocked due to time restrictions");
+                        nextAction = ProxyNextAction.DropConnection;
 
                         if (isHtml || hasReferer == false)
                         {
@@ -1702,6 +1718,10 @@ namespace CitadelService.Services
 
                         return;
                     }
+                }
+                else
+                {
+                    m_logger.Info("Time restrictions are currently not enabled.");
                 }
 
                 var filterCollection = m_policyConfiguration.FilterCollection;
@@ -2046,6 +2066,7 @@ namespace CitadelService.Services
 
             string relaxed_policy_message = "";
             string matching_category = "";
+            string custom_block_reason = "it was in the following category:";
             string otherCategories = "";
 
             // Determine if URL is in the relaxed policy.
@@ -2087,7 +2108,8 @@ namespace CitadelService.Services
                         break;
 
                     case BlockType.TimeRestriction:
-                        matching_category = "no internet allowed at this hour";
+                        matching_category = "";
+                        custom_block_reason = "your internet access is currently restricted.";
                         break;
 
                     case BlockType.ImageClassification:
@@ -2113,6 +2135,7 @@ namespace CitadelService.Services
             blockPageTemplate = blockPageTemplate.Replace("{{url_text}}", url_text);
             blockPageTemplate = blockPageTemplate.Replace("{{friendly_url_text}}", friendlyUrlText);
             blockPageTemplate = blockPageTemplate.Replace("{{matching_category}}", matching_category);
+            blockPageTemplate = blockPageTemplate.Replace("{{custom_block_reason}}", custom_block_reason);
             blockPageTemplate = blockPageTemplate.Replace("{{other_categories}}", otherCategories);
             blockPageTemplate = blockPageTemplate.Replace("{{unblock_request}}", unblockRequest);
             blockPageTemplate = blockPageTemplate.Replace("{{relaxed_policy_message}}", relaxed_policy_message);
@@ -2586,6 +2609,19 @@ namespace CitadelService.Services
         private void OnConfigLoaded_LoadRelaxedPolicy(object sender, EventArgs e)
         {
             this.UpdateNumberOfBypassesFromServer();
+
+            var config = m_policyConfiguration.Configuration;
+
+            m_logger.Info($"Time restrictions: {config.IsTimeRestrictionEnabled}");
+
+            if(config.TimeRestrictionRange != null)
+            {
+                m_logger.Info($"Time restriction range: {config.TimeRestrictionRange.Start.ToString()} - {config.TimeRestrictionRange.End.ToString()}");
+            }
+            else
+            {
+                m_logger.Info("Time restriction range not enabled.");
+            }
         }
 
         /// <summary>

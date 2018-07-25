@@ -5,6 +5,7 @@
 * file, You can obtain one at http://mozilla.org/MPL/2.0/.
 */
 
+using Citadel.Core.Windows.Util;
 using Newtonsoft.Json;
 using NodaTime;
 using System;
@@ -17,6 +18,13 @@ namespace CitadelService.Data.Time
 {
     public class StringToTimeRangeConverter : JsonConverter
     {
+        private NLog.Logger m_logger;
+
+        public StringToTimeRangeConverter() : base()
+        {
+            m_logger = LoggerUtil.GetAppWideLogger();
+        }
+
         public override bool CanConvert(Type objectType)
         {
             return objectType == typeof(TimeRange);
@@ -33,11 +41,13 @@ namespace CitadelService.Data.Time
 
             if(!tryParseTime(times[0], out startTime))
             {
+                m_logger.Error($"Failed to parse start time {times[0]}");
                 return null;
             }
 
             if(!tryParseTime(times[1], out endTime))
             {
+                m_logger.Error($"Failed to parse end time {times[1]}");
                 return null;
             }
 
@@ -60,6 +70,7 @@ namespace CitadelService.Data.Time
             {
                 if(!int.TryParse(timeParts[2], out seconds))
                 {
+                    m_logger.Error($"seconds parse failed {timeParts[2]}");
                     time = LocalTime.MinValue;
                     return false;
                 }
@@ -69,6 +80,7 @@ namespace CitadelService.Data.Time
             {
                 if(!int.TryParse(timeParts[1], out minutes))
                 {
+                    m_logger.Error($"minutes parse failed {timeParts[1]}");
                     time = LocalTime.MinValue;
                     return false;
                 }
@@ -78,6 +90,7 @@ namespace CitadelService.Data.Time
             {
                 if(!int.TryParse(timeParts[0], out hours))
                 {
+                    m_logger.Error($"hours parse failed {timeParts[0]}");
                     time = LocalTime.MinValue;
                     return false;
                 }
