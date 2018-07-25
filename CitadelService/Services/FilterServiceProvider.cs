@@ -48,8 +48,6 @@ using DNS;
 using DNS.Client;
 using System.Net.Http;
 using CitadelService.Common.Configuration;
-
-using FirewallAction = CitadelCore.Net.Proxy.FirewallAction;
 using NodaTime;
 
 namespace CitadelService.Services
@@ -284,6 +282,8 @@ namespace CitadelService.Services
 
         private TrustManager m_trustManager = new TrustManager();
 
+        private CertificateExemptions m_certificateExemptions = new CertificateExemptions();
+
         /// <summary>
         /// Default ctor. 
         /// </summary>
@@ -293,22 +293,40 @@ namespace CitadelService.Services
 
         private void OnStartup()
         {
+            if(File.Exists("debug-filterserviceprovider"))
+            {
+                Debugger.Launch();
+            }
+
             // We spawn a new thread to initialize all this code so that we can start the service and return control to the Service Control Manager.
-            // I have reason to suspect that on some 1803 computers, this statement (or some of this initialization) was hanging, causing an error.
+            bool consoleOutStatus = false;
+
             try
             {
+                // I have reason to suspect that on some 1803 computers, this statement (or some of this initialization) was hanging, causing an error.
+                // on service control manager.
                 m_logger = LoggerUtil.GetAppWideLogger();
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 try
                 {
                     EventLog.WriteEntry("FilterServiceProvider", $"Exception occurred while initializing logger: {ex.ToString()}");
                 }
-                catch(Exception ex2)
+                catch (Exception ex2)
                 {
                     File.AppendAllText(@"C:\FilterServiceProvider.FatalCrashLog.log", $"Fatal crash. {ex.ToString()} \r\n{ex2.ToString()}");
                 }
+            }
+
+            try
+            {
+                Console.SetOut(new ConsoleLogWriter());
+                consoleOutStatus = true;
+            }
+            catch (Exception ex)
+            {
+
             }
 
             string appVerStr = System.Diagnostics.Process.GetCurrentProcess().ProcessName;
@@ -323,10 +341,15 @@ namespace CitadelService.Services
                 m_ipcServer = new IPCServer();
                 m_policyConfiguration = new DefaultPolicyConfiguration(m_ipcServer, m_logger, m_filteringRwLock);
             }
-            catch(Exception ex)
+            catch (Exception ex)
             {
                 LoggerUtil.RecursivelyLogException(m_logger, ex);
                 return;
+            }
+
+            if(!consoleOutStatus)
+            {
+                m_logger.Warn("Failed to link console output to file.");
             }
 
             // Enforce good/proper protocols
@@ -707,6 +730,50 @@ namespace CitadelService.Services
                 {
                     m_dnsEnforcement.Trigger();
                 };
+
+                m_ipcServer.OnCertificateExemptionGranted = (msg) =>
+                {
+                    m_certificateExemptions.TrustCertificate(msg.Host, msg.CertificateHash);
+                };
+
+                m_ipcServer.OnDiagnosticsEnable = (msg) =>
+                {
+                    CitadelCore.Diagnostics.Collector.IsDiagnosticsEnabled = msg.EnableDiagnostics;
+                };
+
+                // Hooks for CitadelCore diagnostics.
+                CitadelCore.Diagnostics.Collector.OnSessionReported += (webSession) =>
+                {
+                    m_logger.Info("OnSessionReported");
+
+                    m_ipcServer.SendDiagnosticsInfo(new DiagnosticsInfoV1()
+                    {
+                        DiagnosticsType = DiagnosticsType.RequestSession,
+
+                        ClientRequestBody = webSession.ClientRequestBody,
+                        ClientRequestHeaders = webSession.ClientRequestHeaders,
+                        ClientRequestUri = webSession.ClientRequestUri,
+
+                        ServerRequestBody = webSession.ServerRequestBody,
+                        ServerRequestHeaders = webSession.ServerRequestHeaders,
+                        ServerRequestUri = webSession.ServerRequestUri,
+
+                        ServerResponseBody = webSession.ServerResponseBody,
+                        ServerResponseHeaders = webSession.ServerResponseHeaders,
+
+                        DateStarted = webSession.DateStarted,
+                        DateEnded = webSession.DateEnded
+                    });
+                };
+
+                CitadelCore.Diagnostics.Collector.OnBadSsl += (report) =>
+                {
+                    m_ipcServer.SendDiagnosticsInfo(new DiagnosticsInfoV1()
+                    {
+                        Host = report.Host,
+                        RequestUri = report.RequestUri
+                    });
+                };
             }
             catch(Exception ipce)
             {
@@ -966,8 +1033,22 @@ namespace CitadelService.Services
             // Init the engine with our callbacks, the path to the ca-bundle, let it pick whatever
             // ports it wants for listening, and give it our total processor count on this machine as
             // a hint for how many threads to use.
+
+            m_filteringEngine = new WindowsProxyServer(new ProxyOptions()
+            {
+                BadCertificateCallback = OnBadCertificate,
+                FirewallCheckCallback = OnAppFirewallCheck,
+                MessageBeginCallback = OnHttpMessageBegin,
+                MessageEndCallback = OnHttpMessageEnd,
+                CertificateExemptions = m_certificateExemptions
+            });
+
+            m_certificateExemptions.OnAddCertificateExemption += (host, certHash, isTrusted) =>
+            {
+                m_ipcServer.NotifyAddCertificateExemption(host, certHash, isTrusted);
+            };
+
             //m_filteringEngine = new WindowsProxyServer(OnAppFirewallCheck, OnHttpMessageBegin, OnHttpMessageEnd, OnBadCertificate);
-            m_filteringEngine = new WindowsProxyServer("Citadel Core", OnAppFirewallCheck, OnHttpMessageBegin, OnHttpMessageEnd);
 
             // Setup general info, warning and error events.
             LoggerProxy.Default.OnInfo += EngineOnInfo;
@@ -1350,24 +1431,24 @@ namespace CitadelService.Services
         /// True if the application at the specified absolute path should have its traffic forced
         /// through the filtering engine, false otherwise.
         /// </returns>
-        private FirewallResponse OnAppFirewallCheck(FirewallRequest request)
+        private bool OnAppFirewallCheck(string appAbsolutePath)
         {
             // XXX TODO - The engine shouldn't even tell us about SYSTEM processes and just silently
             // let them through.
-            if (request.BinaryAbsolutePath.OIEquals("SYSTEM"))
+            if (appAbsolutePath.OIEquals("SYSTEM"))
             {
-                return new FirewallResponse(FirewallAction.DontFilterApplication);
+                return false;
             }
 
             // Lets completely avoid piping anything from the operating system in the filter, with
             // the sole exception of Microsoft edge.
-            if((request.BinaryAbsolutePath.IndexOf("MicrosoftEdge", StringComparison.OrdinalIgnoreCase) == -1) && request.BinaryAbsolutePath.IndexOf(@"\Windows\", StringComparison.OrdinalIgnoreCase) != -1)
+            if ((appAbsolutePath.IndexOf("MicrosoftEdge", StringComparison.OrdinalIgnoreCase) == -1) && appAbsolutePath.IndexOf(@"\Windows\", StringComparison.OrdinalIgnoreCase) != -1)
             {
-                lock(s_foreverWhitelistedApplications)
+                lock (s_foreverWhitelistedApplications)
                 {
-                    if(s_foreverWhitelistedApplications.Contains(request.BinaryAbsolutePath))
+                    if (s_foreverWhitelistedApplications.Contains(appAbsolutePath))
                     {
-                        return new FirewallResponse(FirewallAction.DontFilterApplication);
+                        return false;
                     }
                 }
 
@@ -1394,14 +1475,14 @@ namespace CitadelService.Services
 
                 // If the result is greater than zero, then this is a protected operating system file
                 // according to the operating system.
-                if(SFC.SfcIsFileProtected(IntPtr.Zero, request.BinaryAbsolutePath) > 0)
+                if (SFC.SfcIsFileProtected(IntPtr.Zero, appAbsolutePath) > 0)
                 {
-                    lock(s_foreverWhitelistedApplications)
+                    lock (s_foreverWhitelistedApplications)
                     {
-                        s_foreverWhitelistedApplications.Add(request.BinaryAbsolutePath);
+                        s_foreverWhitelistedApplications.Add(appAbsolutePath);
                     }
 
-                    return new FirewallResponse(FirewallAction.DontFilterApplication);
+                    return false;
                 }
             }
 
@@ -1409,55 +1490,52 @@ namespace CitadelService.Services
             {
                 m_filteringRwLock.EnterReadLock();
 
-                if(m_policyConfiguration.BlacklistedApplications.Count == 0 && m_policyConfiguration.WhitelistedApplications.Count == 0)
+                if (m_policyConfiguration.BlacklistedApplications.Count == 0 && m_policyConfiguration.WhitelistedApplications.Count == 0)
                 {
                     // Just filter anything accessing port 80 and 443.
-                    m_logger.Debug("1Filtering application: {0}", request.BinaryAbsolutePath);
-                    return new FirewallResponse(FirewallAction.FilterApplication);
+                    m_logger.Debug("1Filtering application: {0}", appAbsolutePath);
+                    return true;
                 }
 
-                var appName = Path.GetFileName(request.BinaryAbsolutePath);
+                var appName = Path.GetFileName(appAbsolutePath);
 
-                if(m_policyConfiguration.WhitelistedApplications.Count > 0)
+                if (m_policyConfiguration.WhitelistedApplications.Count > 0)
                 {
-                    bool inList = isAppInList(m_policyConfiguration.WhitelistedApplications, request.BinaryAbsolutePath, appName);
+                    if (m_policyConfiguration.WhitelistedApplications.Contains(appName))
+                    {
+                        // Whitelist is in effect and this app is whitelisted. So, don't force it through.
+                        return false;
+                    }
 
-                    if(inList)
-                    {
-                        return new FirewallResponse(FirewallAction.DontFilterApplication);
-                    }
-                    else
-                    {
-                        // Whitelist is in effect, and this app is not whitelisted, so force it through.
-                        m_logger.Debug("2Filtering application: {0}", request.BinaryAbsolutePath);
-                        return new FirewallResponse(FirewallAction.FilterApplication);
-                    }
+                    // Whitelist is in effect, and this app is not whitelisted, so force it through.
+                    m_logger.Debug("2Filtering application: {0}", appAbsolutePath);
+                    return true;
                 }
 
-                if(m_policyConfiguration.BlacklistedApplications.Count > 0)
+                if (m_policyConfiguration.BlacklistedApplications.Count > 0)
                 {
-                    bool inList = isAppInList(m_policyConfiguration.BlacklistedApplications, request.BinaryAbsolutePath, appName);
-
-                    if(inList)
+                    if (m_policyConfiguration.BlacklistedApplications.Contains(appName))
                     {
-                        m_logger.Debug("3Filtering application: {0}", request.BinaryAbsolutePath);
-                        return new FirewallResponse(FirewallAction.BlockInternetForApplication);
+                        // Blacklist is in effect and this app is blacklisted. So, force it through.
+                        m_logger.Debug("3Filtering application: {0}", appAbsolutePath);
+                        return true;
                     }
 
-                    return new FirewallResponse(FirewallAction.FilterApplication);
+                    // Blacklist in effect but this app is not on the blacklist. Don't force it through.
+                    return false;
                 }
 
                 // This app was not hit by either an enforced whitelist or blacklist. So, by default
                 // we will filter everything. We should never get here, but just in case.
 
-                m_logger.Debug("4Filtering application: {0}", request.BinaryAbsolutePath);
-                return new FirewallResponse(FirewallAction.FilterApplication);
+                m_logger.Debug("4Filtering application: {0}", appAbsolutePath);
+                return true;
             }
-            catch(Exception e)
+            catch (Exception e)
             {
                 m_logger.Error("Error in {0}", nameof(OnAppFirewallCheck));
                 LoggerUtil.RecursivelyLogException(m_logger, e);
-                return new FirewallResponse(FirewallAction.DontFilterApplication);
+                return false;
             }
             finally
             {
@@ -1707,14 +1785,19 @@ namespace CitadelService.Services
                             OnRequestBlocked(matchCategory, BlockType.Url, requestUrl, matchingFilter.OriginalRule);
                             nextAction = ProxyNextAction.DropConnection;
 
-                            UriInfo urlInfo = WebServiceUtil.Default.LookupUri(requestUrl, true);
+                            // Instead of going to an external API for information, we should do everything 
+                            // that we can locally.
+                            List<int> matchingCategories = GetAllCategoriesMatchingUrl(filters, requestUrl, parsedHeaders);
+                            List<MappedFilterListCategoryModel> resolvedCategories = ResolveCategoriesFromIds(matchingCategories);
+
+                            //UriInfo urlInfo = WebServiceUtil.Default.LookupUri(requestUrl, true);
 
                             if (isHtml || hasReferer == false)
                             {
                                 // Only send HTML block page if we know this is a response of HTML we're blocking, or
                                 // if there is no referer (direct navigation).
                                 customBlockResponseContentType = "text/html";
-                                customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, matchCategory, urlInfo);
+                                customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, matchCategory, resolvedCategories);
                             }
                             else
                             {
@@ -1733,14 +1816,15 @@ namespace CitadelService.Services
                         OnRequestBlocked(matchCategory, BlockType.Url, requestUrl, matchingFilter.OriginalRule);
                         nextAction = ProxyNextAction.DropConnection;
 
-                        UriInfo uriInfo = WebServiceUtil.Default.LookupUri(requestUrl, true);
+                        List<int> matchingCategories = GetAllCategoriesMatchingUrl(filters, requestUrl, parsedHeaders);
+                        List<MappedFilterListCategoryModel> categories = ResolveCategoriesFromIds(matchingCategories);
 
                         if(isHtml || hasReferer == false)
                         {
                             // Only send HTML block page if we know this is a response of HTML we're blocking, or
                             // if there is no referer (direct navigation).
                             customBlockResponseContentType = "text/html";
-                            customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, matchCategory, uriInfo);
+                            customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, matchCategory, categories);
                         }
                         else
                         {
@@ -1767,7 +1851,7 @@ namespace CitadelService.Services
 
         private void OnBadCertificate(Uri requestUrl, HttpRequestException requestException, out string customResponseContentType, out byte[] customResponse)
         {
-            WebException webEx = (requestException.InnerException as WebException);
+            WebException webEx = (requestException?.InnerException as WebException);
             var response = webEx?.Response;
 
             if(response != null)
@@ -1815,12 +1899,12 @@ namespace CitadelService.Services
                     {
                         shouldBlock = true;
 
-                        UriInfo uriInfo = WebServiceUtil.Default.LookupUri(requestUrl, true);
+                        List<MappedFilterListCategoryModel> categories = new List<MappedFilterListCategoryModel>();
 
                         if(contentType.IndexOf("html") != -1)
                         {
                             customBlockResponseContentType = "text/html";
-                            customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, contentClassResult, uriInfo, blockType, textCategory);
+                            customBlockResponse = getBlockPageWithResolvedTemplates(requestUrl, contentClassResult, categories, blockType, textCategory);
                         }
                         
                         OnRequestBlocked(contentClassResult, blockType, requestUrl);
@@ -1842,7 +1926,6 @@ namespace CitadelService.Services
             var len = filters.Count;
             for(int i = 0; i < len; ++i)
             {
-                Console.WriteLine(filters[i].IsException);
                 if(m_policyConfiguration.CategoryIndex.GetIsCategoryEnabled(filters[i].CategoryId) && filters[i].IsMatch(request, headers))
                 {
                     matched = filters[i];
@@ -1854,9 +1937,51 @@ namespace CitadelService.Services
             return false;
         }
 
-        
+        /// <summary>
+        /// Use this function after you've determined that the filter should block a certain URI.
+        /// </summary>
+        /// <param name="filters"></param>
+        /// <param name="request"></param>
+        /// <returns></returns>
+        private List<int> GetAllCategoriesMatchingUrl(List<UrlFilter> filters, Uri request, NameValueCollection headers)
+        {
+            List<int> matchingCategories = new List<int>();
+
+            var len = filters.Count;
+            for(int i = 0; i < len; i++)
+            {
+                if(m_policyConfiguration.CategoryIndex.GetIsCategoryEnabled(filters[i].CategoryId) && filters[i].IsMatch(request, headers))
+                {
+                    matchingCategories.Add(filters[i].CategoryId);
+                }
+            }
+
+            return matchingCategories;
+        }
+
+        private List<MappedFilterListCategoryModel> ResolveCategoriesFromIds(List<int> matchingCategories)
+        {
+            List<MappedFilterListCategoryModel> categories = new List<MappedFilterListCategoryModel>();
+
+            int length = matchingCategories.Count;
+            var categoryValues = m_policyConfiguration.GeneratedCategoriesMap.Values;
+            foreach(var category in categoryValues)
+            {
+                for(int i = 0; i < length; i++)
+                {
+                    if (category.CategoryId == matchingCategories[i])
+                    {
+                        categories.Add(category);
+                    }
+                }
+            }
+
+            return categories;
+        }
+
         private string findCategoryFromUriInfo(int matchingCategory, UriInfo info)
         {
+            // If there's more than one category here that == 0, how are we to know which one is active?
             var results = info.results.Where(r => r.category_status == 0);
             foreach(var result in results)
             {
@@ -1886,11 +2011,12 @@ namespace CitadelService.Services
 
             pageTemplate = pageTemplate.Replace("{{url_text}}", urlText);
             pageTemplate = pageTemplate.Replace("{{friendly_url_text}}", friendlyUrlText);
+            pageTemplate = pageTemplate.Replace("{{host}}", requestUri.Host);
 
             return Encoding.UTF8.GetBytes(pageTemplate);
         }
 
-        private byte[] getBlockPageWithResolvedTemplates(Uri requestUri, int matchingCategory, UriInfo info, BlockType blockType = BlockType.None, string triggerCategory = "")
+        private byte[] getBlockPageWithResolvedTemplates(Uri requestUri, int matchingCategory, List<MappedFilterListCategoryModel> appliedCategories, BlockType blockType = BlockType.None, string triggerCategory = "")
         {
             string blockPageTemplate = UTF8Encoding.Default.GetString(m_blockedHtmlPage);
 
@@ -1919,10 +2045,21 @@ namespace CitadelService.Services
             unblockRequest += "?" + query;
 
             string relaxed_policy_message = "";
+            string matching_category = "";
+            string otherCategories = "";
 
             // Determine if URL is in the relaxed policy.
             foreach (var entry in m_policyConfiguration.GeneratedCategoriesMap.Values)
             {
+                if (matchingCategory == entry.CategoryId)
+                {
+                    matching_category = entry.ShortCategoryName;
+                }
+                else
+                {
+                    otherCategories += $"<p class='category other'>{entry.ShortCategoryName}</p>";
+                }
+
                 if (entry is MappedBypassListCategoryModel)
                 {
                     if(matchingCategory == entry.CategoryId)
@@ -1934,13 +2071,15 @@ namespace CitadelService.Services
             }
 
             // Get category or block type.
-            string url_text = urlText == null ? "" : urlText, matching_category = "";
-            if (info != null && matchingCategory > 0 && blockType == BlockType.None)
+            string url_text = urlText == null ? "" : urlText;
+            if (matchingCategory > 0 && blockType == BlockType.None)
             {
-                matching_category = findCategoryFromUriInfo(matchingCategory, info);
+                // matching_category name already set.
             }
             else
             {
+                otherCategories = "";
+
                 switch (blockType)
                 {
                     case BlockType.None:
@@ -1974,6 +2113,7 @@ namespace CitadelService.Services
             blockPageTemplate = blockPageTemplate.Replace("{{url_text}}", url_text);
             blockPageTemplate = blockPageTemplate.Replace("{{friendly_url_text}}", friendlyUrlText);
             blockPageTemplate = blockPageTemplate.Replace("{{matching_category}}", matching_category);
+            blockPageTemplate = blockPageTemplate.Replace("{{other_categories}}", otherCategories);
             blockPageTemplate = blockPageTemplate.Replace("{{unblock_request}}", unblockRequest);
             blockPageTemplate = blockPageTemplate.Replace("{{relaxed_policy_message}}", relaxed_policy_message);
 

@@ -861,13 +861,6 @@ namespace Citadel.Core.Windows.Util
                         {
                             m_logger.Info("SendResource2: Failed with client code {0}", intCode);
                         }
-
-                        using(Stream data = response.GetResponseStream())
-                        using(var reader = new StreamReader(data))
-                        {
-                            string text = reader.ReadToEnd();
-                            m_logger.Error(text);
-                        }
                     }
                 }
                 catch { }

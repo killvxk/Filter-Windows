@@ -71,6 +71,8 @@ namespace Te.Citadel.UI.ViewModels
         /// </summary>
         private RelayCommand m_relinquishRelaxedPolicyCommand;
 
+        private RelayCommand m_viewSslExemptionsCommand;
+
         internal DashboardModel Model
         {
             get
@@ -80,6 +82,22 @@ namespace Te.Citadel.UI.ViewModels
         }
 
         private RelayCommand m_sidebarButtonCommand;
+
+        public RelayCommand ViewSslExemptionsCommand
+        {
+            get
+            {
+                if(m_viewSslExemptionsCommand == null)
+                {
+                    m_viewSslExemptionsCommand = new RelayCommand((Action)(() =>
+                    {
+                        ViewChangeRequest?.Invoke(typeof(SslExemptionsView));
+                    }));
+                }
+
+                return m_viewSslExemptionsCommand;
+            }
+        }
 
         /// <summary>
         /// Generic handler for all of the sidebar buttons.

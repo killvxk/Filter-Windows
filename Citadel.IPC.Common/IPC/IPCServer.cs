@@ -102,6 +102,23 @@ namespace Citadel.IPC
     /// </param>
     public delegate void DeactivationRequestHandler(DeactivationRequestEventArgs args);
 
+    public class CertificateExemptionEventArgs : EventArgs
+    {
+        public string Host { get; set; }
+        public string CertificateHash { get; set; }
+
+        public bool ExemptionGranted { get; set; }
+
+        public CertificateExemptionEventArgs(CertificateExemptionMessage msg)
+        {
+            Host = msg.Host;
+            CertificateHash = msg.CertificateHash;
+            ExemptionGranted = msg.ExemptionGranted;
+        }
+    }
+
+    public delegate void CertificateExemptionHandler(CertificateExemptionEventArgs args);
+
     /// <summary>
     /// Arguments for the AuthenticationRequestHandler delegate. 
     /// </summary>
@@ -171,6 +188,8 @@ namespace Citadel.IPC
     /// <param name="message"></param>
     public delegate void RequestCaptivePortalDetectionHandler(CaptivePortalDetectionMessage message);
 
+    public delegate void DiagnosticsEnableHandler(DiagnosticsMessage message);
+
     /// <summary>
     /// The IPC server class is meant to be used with a session 0 isolated process, more specifically
     /// a Windows service. This class handles requests from clients (GUI) and responds accordingly.
@@ -236,6 +255,16 @@ namespace Citadel.IPC
         /// Delegate to be called when a client is requesting a captive portal state.
         /// </summary>
         public RequestCaptivePortalDetectionHandler RequestCaptivePortalDetection;
+
+        /// <summary>
+        /// Delegate to be called when a client grants a certificate exemption.
+        /// </summary>
+        public CertificateExemptionHandler OnCertificateExemptionGranted;
+
+        /// <summary>
+        /// Delegate to be called when a client enables diagnostics information.
+        /// </summary>
+        public DiagnosticsEnableHandler OnDiagnosticsEnable;
 
         /// <summary>
         /// Our logger. 
@@ -445,6 +474,24 @@ namespace Citadel.IPC
                     RequestCaptivePortalDetection?.Invoke(cast);
                 }
             }
+            else if(msgRealType == typeof(Messages.CertificateExemptionMessage))
+            {
+                m_logger.Debug("Server message is {0}", nameof(Messages.CertificateExemptionMessage));
+                var cast = (Messages.CertificateExemptionMessage)message;
+                if(cast != null)
+                {
+                    this.OnCertificateExemptionGranted?.Invoke(new CertificateExemptionEventArgs(cast));
+                }
+            }
+            else if (msgRealType == typeof(Messages.DiagnosticsMessage))
+            {
+                m_logger.Debug("Server message is {0}", nameof(Messages.DiagnosticsMessage));
+                var cast = (Messages.DiagnosticsMessage)message;
+                if (cast != null)
+                {
+                    this.OnDiagnosticsEnable?.Invoke(cast);
+                }
+            }
             else
             {
                 // Unknown type.
@@ -576,6 +623,14 @@ namespace Citadel.IPC
             PushMessage(msg);
         }
 
+        public void NotifyAddCertificateExemption(string host, string certHash, bool isTrusted)
+        {
+            m_logger.Info("Sending certificate exemption");
+
+            var msg = new CertificateExemptionMessage(host, certHash, isTrusted);
+            PushMessage(msg);
+        }
+
         /// <summary>
         /// Send captive portal state back to the client.
         /// </summary>
@@ -586,6 +641,14 @@ namespace Citadel.IPC
             PushMessage(msg);
         }
 
+        public void SendDiagnosticsInfo(DiagnosticsInfoV1 info)
+        {
+            var message = new DiagnosticsInfoMessage();
+            message.ObjectVersion = DiagnosticsVersion.V1;
+            message.Info = info;
+
+            PushMessage(message);
+        }
 
         private void PushMessage(BaseMessage msg)
         {

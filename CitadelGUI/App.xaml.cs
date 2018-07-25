@@ -122,6 +122,11 @@ namespace Te.Citadel
         private DashboardView m_viewDashboard;
 
         /// <summary>
+        /// View to show for SSL exemption requests.
+        /// </summary>
+        private SslExemptionsView m_sslExemptionsView;
+
+        /// <summary>
         /// Used to communicate with the filtering back end service. 
         /// </summary>
         private IPCClient m_ipcClient;
@@ -134,7 +139,7 @@ namespace Te.Citadel
 
         #endregion Views
 
-
+        public Dictionary<string, CertificateExemptionMessage> SslExemptions { get; set; }
 
         /// <summary>
         /// Default ctor. 
@@ -224,6 +229,11 @@ namespace Te.Citadel
                 }
                 else
                 {
+                    if(File.Exists("debug-cloudveil"))
+                    {
+                        Debugger.Launch();
+                    }
+
                     // Just creating an instance of this will do the job of forcing our service to
                     // start. Letting it fly off into garbage collection land should have no effect.
                     // The service is self-sustaining after this point.
@@ -437,6 +447,27 @@ namespace Te.Citadel
                             }
                         }
                     );
+                };
+
+                m_ipcClient.AddCertificateExemptionRequest = (msg) =>
+                {
+                    Current.Dispatcher.BeginInvoke(
+                        System.Windows.Threading.DispatcherPriority.Normal,
+                        (Action)delegate ()
+                        {
+                            if (msg.ExemptionGranted)
+                            {
+                                this.OnNotifyUserRequest("Certificate Trusted", $"The certificate for {msg.Host} is now trusted.");
+                            }
+                            else
+                            {
+                                var sslExemptionsModel = (SslExemptionsViewModel)m_sslExemptionsView.DataContext;
+
+                                m_logger.Info("Adding certificate trust request to list. {0}", msg.Host);
+
+                                sslExemptionsModel.AddSslCertificateExemptionRequest(msg);
+                            }
+                        });
                 };
 
                 m_ipcClient.ConnectedToServer = () =>
@@ -709,6 +740,14 @@ namespace Te.Citadel
                 ((BaseCitadelViewModel)(m_viewDashboard.DataContext)).UserNotificationRequest = OnNotifyUserRequest;
             }
 
+            m_sslExemptionsView = new SslExemptionsView();
+
+            if(m_sslExemptionsView.DataContext != null && m_sslExemptionsView.DataContext is BaseCitadelViewModel)
+            {
+                ((BaseCitadelViewModel)(m_sslExemptionsView.DataContext)).ViewChangeRequest = OnViewChangeRequest;
+                ((BaseCitadelViewModel)(m_sslExemptionsView.DataContext)).UserNotificationRequest = OnNotifyUserRequest;
+            }
+
             // Set the current view to ProgressWait because we're gonna do background init next.
             this.MainWindow = m_mainWindow;
             m_mainWindow.Show();
@@ -945,6 +984,12 @@ namespace Te.Citadel
                             case nameof(DashboardView):
                                 {
                                     newView = m_viewDashboard;
+                                }
+                                break;
+
+                            case nameof(SslExemptionsView):
+                                {
+                                    newView = m_sslExemptionsView;
                                 }
                                 break;
                         }
