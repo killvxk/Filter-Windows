@@ -344,10 +344,16 @@ namespace CitadelService.Common.Configuration
                             uint totalFilterRulesFailed = 0;
                             uint totalTriggersLoaded = 0;
 
+                            m_logger.Info($"Number of configured lists: {Configuration.ConfiguredLists?.Count}");
+
                             // Load all configured list files.
                             foreach (var listModel in Configuration.ConfiguredLists)
                             {
                                 var listEntry = zip.Entries.Where(pp => pp.FullName.OIEquals(listModel.RelativeListPath)).FirstOrDefault();
+                                // FIXME: Why is this foreach loop not looping?
+
+                                m_logger.Info($"zip entry {listEntry == null} from {listModel.RelativeListPath}");
+
                                 if (listEntry != null)
                                 {
                                     var thisListCategoryName = listModel.RelativeListPath.Substring(0, listModel.RelativeListPath.LastIndexOfAny(new[] { '/', '\\' }) + 1) + Path.GetFileNameWithoutExtension(listModel.RelativeListPath);
@@ -454,6 +460,21 @@ namespace CitadelService.Common.Configuration
                                             }
                                             break;
                                     }
+                                }
+                            }
+
+                            if(Configuration.SelfModerationBlacklist != null)
+                            {
+                                MappedFilterListCategoryModel selfModerationModel = null;
+                                TryFetchOrCreateCategoryMap("self_moderated", out selfModerationModel);
+
+                                var loadedFailedRes = m_filterCollection.ParseStoreRules(Configuration.SelfModerationBlacklist.ToArray(), selfModerationModel.CategoryId).Result;
+                                totalFilterRulesLoaded += (uint)loadedFailedRes.Item1;
+                                totalFilterRulesFailed += (uint)loadedFailedRes.Item2;
+
+                                if(loadedFailedRes.Item1 > 0)
+                                {
+                                    m_categoryIndex.SetIsCategoryEnabled(selfModerationModel.CategoryId, true);
                                 }
                             }
 

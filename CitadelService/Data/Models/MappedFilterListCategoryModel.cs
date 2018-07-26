@@ -42,7 +42,16 @@ namespace CitadelService.Data.Models
         {
             get
             {
-                return CategoryName.Trim('/').Split('/')[1];
+                string[] splits = CategoryName.Trim('/').Split('/');
+
+                if(splits.Length > 1)
+                {
+                    return splits[1];
+                }
+                else
+                {
+                    return splits[0];
+                }
             }
         }
 

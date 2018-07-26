@@ -130,6 +130,11 @@ namespace CitadelService.Data.Models
         public TimeRange TimeRestrictionRange { get; set; }
 
         /// <summary>
+        /// A list of ABP rules to block for self-moderation.
+        /// </summary>
+        public List<string> SelfModerationBlacklist { get; set; }
+
+        /// <summary>
         /// TZ database identifier for us to use in order to check the user's actual time in comparison to what they have set locally.
         /// </summary>
         public string UserTimezone { get; set; }

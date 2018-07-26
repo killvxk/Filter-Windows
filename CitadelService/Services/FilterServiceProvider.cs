@@ -1681,7 +1681,7 @@ namespace CitadelService.Services
                     }
                 }
 
-                if (m_policyConfiguration.Configuration.IsTimeRestrictionEnabled)
+                if (m_policyConfiguration.Configuration != null && m_policyConfiguration.Configuration.IsTimeRestrictionEnabled)
                 {
 
                     // Get current time.
@@ -2070,7 +2070,7 @@ namespace CitadelService.Services
             string otherCategories = "";
 
             // Determine if URL is in the relaxed policy.
-            foreach (var entry in m_policyConfiguration.GeneratedCategoriesMap.Values)
+            foreach (var entry in appliedCategories)
             {
                 if (matchingCategory == entry.CategoryId)
                 {
@@ -2109,7 +2109,7 @@ namespace CitadelService.Services
 
                     case BlockType.TimeRestriction:
                         matching_category = "";
-                        custom_block_reason = "your internet access is currently restricted.";
+                        custom_block_reason = "your internet access is currently restricted due to time restrictions.";
                         break;
 
                     case BlockType.ImageClassification:
