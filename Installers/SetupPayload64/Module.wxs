@@ -592,18 +592,6 @@
           <File Id="_58E52A93_6301" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="System.Net.WebSockets.Client.Managed.dll" Source="..\..\CitadelGUI\bin\Release x64\System.Net.WebSockets.Client.Managed.dll" KeyPath="yes" />
         </Component>
         <Directory Id="InstallGuard.Binaries" />-->
-        <Component Id="comp_4DF15C30_5A3F" Guid="856D41BC-CF38-4A08-9F8A-529B2E168F24" Permanent="no" SharedDllRefCount="no" Transitive="no">
-          <File Id="_FCB50D83_876D" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="System.Data.SQLite.dll" Source="..\..\CitadelGUI\bin\Release x64\System.Data.SQLite.dll" KeyPath="yes" />
-        </Component>
-        <Component Id="comp_1FF65769_E395" Guid="AFCF7CE7-9576-4153-812E-6ADB247B1B09" Permanent="no" SharedDllRefCount="no" Transitive="no">
-          <File Id="_3A395AFE_AF9E" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="System.Data.SQLite.EF6.dll" Source="..\..\CitadelGUI\bin\Release x64\System.Data.SQLite.EF6.dll" KeyPath="yes" />
-        </Component>
-        <Component Id="comp_B784A37F_31D4" Guid="6C44DF7B-3B0F-4CC7-9F26-8EECB5A52233" Permanent="no" SharedDllRefCount="no" Transitive="no">
-          <File Id="_205833BB_6E78" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="EntityFramework.dll" Source="..\..\CitadelGUI\bin\Release x64\EntityFramework.dll" KeyPath="yes" />
-        </Component>
-        <Component Id="comp_768F3FD6_EF56" Guid="3AB79EB4-184E-461E-9118-F1BA2A7F4B56" Permanent="no" SharedDllRefCount="no" Transitive="no">
-          <File Id="_105BF3AF_62EF" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="System.Data.SQLite.Linq.dll" Source="..\..\CitadelGUI\bin\Release x64\System.Data.SQLite.Linq.dll" KeyPath="yes" />
-        </Component>
         <Component Id="comp_FB0C2D24_0C57" Guid="D8109DBB-A2EE-416A-9F3A-721AF966E4E4" Permanent="no" SharedDllRefCount="no" Transitive="no">
           <File Id="_EDACF2CB_F383" DiskId="1" Hidden="no" ReadOnly="no" TrueType="no" System="no" Vital="yes" Name="System.Net.Http.dll" Source="..\..\CitadelGUI\bin\Release x64\System.Net.Http.dll" KeyPath="yes" />
         </Component>

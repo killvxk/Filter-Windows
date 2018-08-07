@@ -48,9 +48,8 @@ using DNS;
 using DNS.Client;
 using System.Net.Http;
 using CitadelService.Common.Configuration;
-
-using FirewallAction = CitadelCore.Net.Proxy.FirewallAction;
 using CitadelCore.Net.Http;
+using FirewallAction = CitadelCore.Net.Proxy.FirewallAction;
 using CitadelCore.IO;
 
 namespace CitadelService.Services
