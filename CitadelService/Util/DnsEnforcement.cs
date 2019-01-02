@@ -313,8 +313,9 @@ namespace CitadelService.Util
         /// <summary>
         /// Detects whether the user is behind a captive portal.
         /// </summary>
+        /// <param name="isCaptivePortalActive">This is an </param>
         /// <returns></returns>
-        public async Task<bool> IsBehindCaptivePortal()
+        public async Task<CaptivePortalState> IsBehindCaptivePortal()
         {
             bool active = await IsCaptivePortalActive();
 
@@ -322,13 +323,21 @@ namespace CitadelService.Util
             {
                 CaptivePortalHelper.Default.OnCaptivePortalDetected();
                 OnCaptivePortalMode?.Invoke(true, true);
-                return active;
+                return new CaptivePortalState()
+                {
+                    IsCaptivePortalActive = active,
+                    IsBehindCaptivePortal = active
+                };
             }
             else
             {
                 bool ret = CaptivePortalHelper.Default.IsCurrentNetworkCaptivePortal();
                 OnCaptivePortalMode?.Invoke(ret, active);
-                return ret;
+                return new CaptivePortalState()
+                {
+                    IsCaptivePortalActive = active,
+                    IsBehindCaptivePortal = ret
+                };
             }
         }
 
@@ -420,51 +429,83 @@ namespace CitadelService.Util
         }
 
         /// <summary>
+        /// This is set whenever we go into a trigger loop when CaptivePortalDetected.NoResponseReturned is returned from checkCaptivePortalState()
+        /// This is part of a solution to prevent server outages from causing DDOS's when the server come back online.
+        /// </summary>
+        private Timer noResponseReturnedTimer = null;
+        private DateTimeOffset noResponseReturnedStartDate = DateTime.MinValue;
+
+        /// <summary>
         /// Detects whether we are blocked by a captive portal and returns result accordingly.
         /// </summary>
         private async Task<bool> IsCaptivePortalActive()
         {
-            if (!NetworkStatus.Default.HasIpv4InetConnection && !NetworkStatus.Default.HasIpv6InetConnection)
+            bool disableTimer = true;
+
+            try
             {
-                // No point in checking further if no internet available.
-                try
+                if (!NetworkStatus.Default.HasIpv4InetConnection && !NetworkStatus.Default.HasIpv6InetConnection)
                 {
-                    IPHostEntry entry = Dns.GetHostEntry("connectivitycheck.cloudveil.org");
+                    // No point in checking further if no internet available.
+                    try
+                    {
+                        IPHostEntry entry = Dns.GetHostEntry("connectivitycheck.cloudveil.org");
+                    }
+                    catch (Exception ex)
+                    {
+                        m_logger.Info("No DNS servers detected as up by captive portal.");
+                        LoggerUtil.RecursivelyLogException(m_logger, ex);
+
+                        return false;
+                    }
+
+                    // Did we get here? This probably means we have internet access, but captive portal may be blocking.
                 }
-                catch (Exception ex)
+
+                CaptivePortalDetected ret = checkCaptivePortalState();
+                if (ret == CaptivePortalDetected.NoResponseReturned)
                 {
-                    m_logger.Info("No DNS servers detected as up by captive portal.");
-                    LoggerUtil.RecursivelyLogException(m_logger, ex);
+                    disableTimer = false;
+
+                    // If no response is returned, this may mean that 
+                    // a) the network is still initializing
+                    // b) we have no internet.
+                    // Schedule a Trigger() for 1.5 second in the future to handle (a)
+                    if (noResponseReturnedTimer == null)
+                    {
+                        noResponseReturnedStartDate = DateTimeOffset.UtcNow;
+                        noResponseReturnedTimer = new Timer((state) =>
+                        {
+                            Trigger();
+                        }, null, 1500, 1500);
+                    }
 
                     return false;
                 }
-
-                // Did we get here? This probably means we have internet access, but captive portal may be blocking.
-            }
-
-            CaptivePortalDetected ret = checkCaptivePortalState();
-            if (ret == CaptivePortalDetected.NoResponseReturned)
-            {
-                // If no response is returned, this may mean that 
-                // a) the network is still initializing
-                // b) we have no internet.
-                // Schedule a Trigger() for 1.5 second in the future to handle (a)
-                
-                Task.Delay(1500).ContinueWith((task) =>
+                else if (ret == CaptivePortalDetected.Yes)
                 {
-                    Trigger();
-                });
+                    m_logger.Info("Captive portal detected.");
+                    return true;
+                }
+                else
+                {
+                    return false;
+                }
+            }
+            finally
+            {
+                if (disableTimer)
+                {
+                    noResponseReturnedTimer.Change(Timeout.Infinite, Timeout.Infinite);
+                    noResponseReturnedTimer.Dispose();
+                    noResponseReturnedTimer = null;
+                } else
+                {
+                    Random rnd = new Random();
 
-                return false;
-            }
-            else if (ret == CaptivePortalDetected.Yes)
-            {
-                m_logger.Info("Captive portal detected.");
-                return true;
-            }
-            else
-            {
-                return false;
+                    int period = 1500 + (rnd.Next(0, 250));
+                    noResponseReturnedTimer.Change(period, period);
+                }
             }
         }
 
@@ -519,6 +560,22 @@ namespace CitadelService.Util
         }
         #endregion
 
+        #region DnsEnforcement.CaptivePortalState
+        public class CaptivePortalState
+        {
+            /// <summary>
+            /// This is true whenever CV4W thinks that we are on a captive portal network.
+            /// This is different from <see cref="IsCaptivePortalActive"/> in that it returns true even when we aren't currently being blocked by a captive portal (i.e. once we've authenticated and have access to the internet)
+            /// </summary>
+            public bool IsBehindCaptivePortal { get; set; }
+
+            /// <summary>
+            /// This is true whenever a captive portal is actively blocking our internet connection.
+            /// </summary>
+            public bool IsCaptivePortalActive { get; set; }
+        }
+        #endregion
+
         // This region includes timers and other event functions in which to run decision functions
         #region DnsEnforcement.Triggers
 
@@ -539,10 +596,10 @@ namespace CitadelService.Util
                     return;
                 }
 
-                bool isCaptivePortal = await IsBehindCaptivePortal();
+                CaptivePortalState captivePortalState = await IsBehindCaptivePortal();
 
-                isBehindCaptivePortal = isCaptivePortal;
-                isCaptivePortalActive = await IsCaptivePortalActive();
+                isBehindCaptivePortal = captivePortalState.IsBehindCaptivePortal;
+                isCaptivePortalActive = captivePortalState.IsCaptivePortalActive;
 
                 TryEnforce(sendDnsChangeEvents, enableDnsFiltering: !isCaptivePortal && isDnsUp);
             }
