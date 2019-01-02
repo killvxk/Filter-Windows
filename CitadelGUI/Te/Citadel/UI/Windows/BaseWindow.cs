@@ -36,8 +36,6 @@ namespace Te.Citadel.UI.Windows
 
         public delegate void OnWindowRestoreRequested();
 
-        public static readonly TimeSpan TaskExpiryTimeout = new TimeSpan(12, 0, 0);
-
         public event OnWindowRestoreRequested WindowRestoreRequested;
 
         private NLog.Logger m_logger;
@@ -60,8 +58,8 @@ namespace Te.Citadel.UI.Windows
             // Check to see if a dialog is currently displaying.
             if(await DialogManager.GetCurrentDialogAsync<BaseMetroDialog>(this) != null)
             {
-                m_logger.Info("Failed to AskUserYesNoQuestion() thanks to write lock.");
-                Sentry.SentrySdk.CaptureMessage("Failed to AskUserYesNoQuestion() thanks to write lock.");
+                m_logger.Info("Failed to ShowUserMessage() thanks to existing dialog.");
+                Sentry.SentrySdk.CaptureMessage("Failed to ShowUserMessage() thanks to existing dialog.");
 
                 return false;
             }
@@ -82,8 +80,8 @@ namespace Te.Citadel.UI.Windows
             // Check to see if a dialog is currently displaying.
             if (await DialogManager.GetCurrentDialogAsync<BaseMetroDialog>(this) != null)
             {
-                m_logger.Info("Failed to AskUserUpdateQuestion() thanks to write lock.");
-                Sentry.SentrySdk.CaptureMessage("Failed to AskUserUpdateQuestion() thanks to write lock.");
+                m_logger.Info("Failed to ShowUserMessage() thanks to existing dialog.");
+                Sentry.SentrySdk.CaptureMessage("Failed to ShowUserMessage() thanks to existing dialog.");
 
                 return UpdateDialogResult.FailedOpen;
             }
@@ -112,15 +110,6 @@ namespace Te.Citadel.UI.Windows
             
         }
 
-        private class UserMessageInfo
-        {
-            public string Title { get; set; }
-            public string Message { get; set; }
-            public string AcceptButtonText { get; set; }
-        }
-
-        private ConcurrentQueue<UserMessageInfo> m_messagesToDisplay = new ConcurrentQueue<UserMessageInfo>();
-
         /// <summary>
         /// Displays a message to the user as an overlay, that the user can only accept. Caller must
         /// ensure that they're calling from within the UI thread.
@@ -139,8 +128,8 @@ namespace Te.Citadel.UI.Windows
             // Check to see if a dialog is currently displaying.
             if (await DialogManager.GetCurrentDialogAsync<BaseMetroDialog>(this) != null)
             {
-                m_logger.Info("Failed to ShowUserMessage() thanks to write lock.");
-                Sentry.SentrySdk.CaptureMessage("Failed to ShowUserMessage() thanks to write lock.");
+                m_logger.Info("Failed to ShowUserMessage() thanks to existing dialog.");
+                Sentry.SentrySdk.CaptureMessage("Failed to ShowUserMessage() thanks to existing dialog.");
 
                 return;
             }
