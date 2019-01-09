@@ -993,6 +993,11 @@ namespace CitadelService.Services
         /// </returns>
         public FirewallResponse OnAppFirewallCheck(FirewallRequest request)
         {
+            if(request.BinaryAbsolutePath.Contains("proxy"))
+            {
+                return new FirewallResponse(FirewallAction.DontFilterApplication);
+            }
+
             // XXX TODO - The engine shouldn't even tell us about SYSTEM processes and just silently
             // let them through.
             if (request.BinaryAbsolutePath.OIEquals("SYSTEM"))
