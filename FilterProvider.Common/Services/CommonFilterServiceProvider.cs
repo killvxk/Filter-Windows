@@ -38,6 +38,9 @@ using Filter.Platform.Common;
 using FilterProvider.Common.Data;
 using Filter.Platform.Common.Net;
 using Filter.Platform.Common.Types;
+using NodaTime;
+using GoproxyWrapper;
+using FilterProvider.Common.Data.Filtering;
 
 namespace FilterProvider.Common.Services
 {
@@ -267,6 +270,8 @@ namespace FilterProvider.Common.Services
 
         private Accountability m_accountability;
 
+        private TimeDetection m_timeDetection;
+
         private IPlatformTrust m_trustManager;
 
         private CertificateExemptions m_certificateExemptions = new CertificateExemptions();
@@ -432,6 +437,9 @@ namespace FilterProvider.Common.Services
                 };
 
                 m_accountability = new Accountability();
+
+                m_timeDetection = new TimeDetection(SystemClock.Instance);
+                m_timeDetection.ZoneTamperingDetected += OnZoneTampering;
 
                 m_policyConfiguration.OnConfigurationLoaded += configureThreshold;
                 m_policyConfiguration.OnConfigurationLoaded += reportRelaxedPolicy;
@@ -652,6 +660,7 @@ namespace FilterProvider.Common.Services
                         if (m_policyConfiguration?.Configuration != null)
                         {
                             m_policyConfiguration.Configuration.SelfModeration.Add(site);
+                            m_policyConfiguration.LoadLists();
 
                             message.SendReply(m_ipcServer, IpcCall.AddSelfModeratedSite, m_policyConfiguration.Configuration.SelfModeration);
                         }
@@ -839,6 +848,18 @@ namespace FilterProvider.Common.Services
             m_backgroundInitWorker.RunWorkerCompleted += OnBackgroundInitComplete;
 
             m_backgroundInitWorker.RunWorkerAsync();
+        }
+
+        private void OnZoneTampering(object sender, ZoneTamperingEventArgs e)
+        {
+            ZonedDateTime currentTime = m_timeDetection.GetRealTime();
+
+            var date = currentTime.ToDateTimeOffset();
+
+            if(m_policyConfiguration.AreAnyTimeRestrictionsEnabled)
+            {
+                m_accountability.NotifyTimeZoneChanged(e.OldZone, e.NewZone);
+            }
         }
 
         private void OnConfigLoaded_LoadSelfModeratedSites(object sender, EventArgs e)
@@ -1434,10 +1455,9 @@ namespace FilterProvider.Common.Services
             }
         }*/
 
+        private static readonly string[] htmlMimeTypes = { "text/html", "text/plain" };
         private void OnHttpRequestBegin(GoproxyWrapper.Session args)
         {
-            m_logger.Info("New request");
-
             ProxyNextAction nextAction = ProxyNextAction.AllowAndIgnoreContent;
 
             string customBlockResponseContentType = null;
@@ -1454,21 +1474,63 @@ namespace FilterProvider.Common.Services
 
             try
             {
-                string contentType = null;
-                bool isHtml = false;
-                bool isJson = false;
-                bool hasReferer = true;
+                ZonedDateTime date = m_timeDetection.GetRealTime();
+                TimeRestrictionModel todayRestriction = m_policyConfiguration.TimeRestrictions[(int)date.ToDateTimeOffset().DayOfWeek];
+
+                // We don't know what's coming back from the server, but we can see what the client is expecting by looking at the 'Accept' header.
+
+                Header acceptHeader = args.Request.Headers.GetFirstHeader("Accept");
+
+                bool useHtmlBlockPage = false;
+
+                if(acceptHeader != null)
+                {
+                    foreach (string headerVal in htmlMimeTypes)
+                    {
+                        if(acceptHeader.Value.IndexOf(headerVal, StringComparison.InvariantCultureIgnoreCase) >= 0)
+                        {
+                            useHtmlBlockPage = true;
+                            break;
+                        }
+                    }
+                }
+                else
+                {
+                    // We don't know what the client is accepting. Make it obvious what's going on by spitting an error onto the screen.
+                    useHtmlBlockPage = true;
+                }
 
                 if(!args.Request.Headers.HeaderExists("Referer"))
                 {
-                    hasReferer = false;
+                    // Use the HTML block page if this is a direct navigation.
+                    useHtmlBlockPage = true;
+                }
+
+                Uri url = new Uri(args.Request.Url);
+
+                if (todayRestriction != null && todayRestriction.RestrictionsEnabled && !m_timeDetection.IsDateTimeAllowed(date, todayRestriction))
+                {
+                    nextAction = ProxyNextAction.DropConnection;
+
+                    if (useHtmlBlockPage)
+                    {
+                        // Only send HTML block page if we know this is a response of HTML we're blocking, or
+                        // if there is no referer (direct navigation).
+                        customBlockResponseContentType = "text/html";
+                        customBlockResponse = getBlockPageWithResolvedTemplates(url, 0, null, BlockType.TimeRestriction);
+                    }
+                    else
+                    {
+                        customBlockResponseContentType = string.Empty;
+                        customBlockResponse = null;
+                    }
+
+                    return;
                 }
 
                 var filterCollection = m_policyConfiguration.FilterCollection;
                 var categoriesMap = m_policyConfiguration.GeneratedCategoriesMap;
                 var categoryIndex = m_policyConfiguration.CategoryIndex;
-
-                Console.WriteLine("Checking " + args.Request.Url);
 
                 if(filterCollection != null)
                 {
@@ -1479,8 +1541,6 @@ namespace FilterProvider.Common.Services
                     List<UrlFilter> filters;
                     short matchCategory = -1;
                     UrlFilter matchingFilter = null;
-
-                    Uri url = new Uri(args.Request.Url);
 
                     //string host = message.Url.Host;
                     string host = url.Host;
@@ -1563,7 +1623,7 @@ namespace FilterProvider.Common.Services
                             List<int> matchingCategories = GetAllCategoriesMatchingUrl(filters, url, headers);
                             List<MappedFilterListCategoryModel> resolvedCategories = ResolveCategoriesFromIds(matchingCategories);
 
-                            if (isHtml || hasReferer == false)
+                            if (useHtmlBlockPage)
                             {
                                 // Only send HTML block page if we know this is a response of HTML we're blocking, or
                                 // if there is no referer (direct navigation).
@@ -1590,7 +1650,7 @@ namespace FilterProvider.Common.Services
                         List<int> matchingCategories = GetAllCategoriesMatchingUrl(filters, url, headers);
                         List<MappedFilterListCategoryModel> categories = ResolveCategoriesFromIds(matchingCategories);
 
-                        if (isHtml || hasReferer == false)
+                        if (useHtmlBlockPage)
                         {
                             // Only send HTML block page if we know this is a response of HTML we're blocking, or
                             // if there is no referer (direct navigation).
@@ -1962,6 +2022,10 @@ namespace FilterProvider.Common.Services
                     case BlockType.TextClassification:
                     case BlockType.TextTrigger:
                         matching_category = string.Format("offensive text: {0}", triggerCategory);
+                        break;
+
+                    case BlockType.TimeRestriction:
+                        matching_category = "no internet allowed at this hour";
                         break;
 
                     case BlockType.OtherContentClassification:
