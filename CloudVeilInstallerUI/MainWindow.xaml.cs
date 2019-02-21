@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
@@ -60,35 +61,24 @@ namespace CloudVeilInstallerUI
 
         public void ShowInstall()
         {
-            Dispatcher.InvokeAsync(() => LoadView(new InstallView(viewModel)));
+            Dispatcher.InvokeAsync(() =>
+            {
+                Console.WriteLine("LoadView InProgress");
+                LoadView(new InstallView(viewModel));
+                Console.WriteLine("LoadView InstallView");
+            });
         }
 
         public void ShowWelcome()
         {
-            try
-            {
-                DispatcherOperation o = Dispatcher.InvokeAsync(
-                    () => LoadView(new WelcomeView(viewModel))
-                );
+            Console.WriteLine("Outside thread ID = {0}", Thread.CurrentThread.ManagedThreadId);
 
-                bool quit = false;
-                int elapsed = 0;
-                while(!quit)
-                {
-                    Console.WriteLine("o {0}", o.Status);
-                    o.Wait(new TimeSpan(0, 0, 0, 0, 150));
-                    elapsed += 150;
-
-                    if(elapsed > 5000)
-                    {
-                        quit = true;
-                    }
-                }
-            }
-            catch(Exception ex)
+            Dispatcher.InvokeAsync(() =>
             {
-                Console.WriteLine(ex);
-            }
+                Console.WriteLine("Dispatcher ThreadId = {0}", Thread.CurrentThread.ManagedThreadId);
+                LoadView(new WelcomeView(viewModel));
+                Console.WriteLine("LoadView ShowWelcome is completed");
+            });
         }
 
         public void ShowFinish()

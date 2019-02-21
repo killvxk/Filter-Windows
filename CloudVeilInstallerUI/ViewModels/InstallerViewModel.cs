@@ -142,7 +142,7 @@ namespace CloudVeilInstallerUI.ViewModels
                     break;
 
                 case CVInstallType.Update:
-                    desiredPlan = LaunchAction.UpdateReplace;
+                    desiredPlan = LaunchAction.Install;
                     break;
             }
 

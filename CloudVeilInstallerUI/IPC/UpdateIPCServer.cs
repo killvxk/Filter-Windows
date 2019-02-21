@@ -19,9 +19,23 @@ namespace CloudVeilInstallerUI.IPC
 
         Dictionary<string, object> variableObjects = new Dictionary<string, object>();
 
+        public Dictionary<string, object> VariableObjects => variableObjects;
+
         public void RegisterObject(string varName, object o)
         {
             variableObjects[varName] = o;
+        }
+
+        public object GetObject(string varName)
+        {
+            object o;
+            if(variableObjects.TryGetValue(varName, out o))
+            {
+                return o;
+            } else
+            {
+                return null;
+            }
         }
 
         public void Set(string varName, string property, object value)
@@ -35,16 +49,11 @@ namespace CloudVeilInstallerUI.IPC
             });
         }
 
-        public async Task<object> Call(string varName, string method, object[] parameters)
+        public Task<object> Call(string varName, string method, object[] parameters)
         {
             object ret = null;
 
-            // This task does not get started until ret == the value requested.
-            // This function sets up everything as needed, and awaits t.Start() to be called.
-            Task<object> t = new Task<object>(() =>
-            {
-                return ret;
-            });
+            TaskCompletionSource<object> tcs = new TaskCompletionSource<object>();
 
             Guid replyId = Guid.NewGuid();
 
@@ -55,9 +64,10 @@ namespace CloudVeilInstallerUI.IPC
                 if (msg.Id.Equals(replyId))
                 {
                     MessageReceived -= fn;
-                    ret = msg.Data;
-
-                    t.Start();
+                    if(!tcs.TrySetResult(msg.Data))
+                    {
+                        tcs.TrySetException(new Exception("Failed to set TaskCompletionSource result."));
+                    }
                 }
             };
 
@@ -71,19 +81,12 @@ namespace CloudVeilInstallerUI.IPC
                 Data = parameters
             });
 
-            return await t;
+            return tcs.Task;
         }
 
-        public async Task<object> Get(string varName, string property)
+        public Task<object> Get(string varName, string property)
         {
-            object ret = null;
-
-            // This task does not get started until ret == the value requested.
-            // This function sets up everything as needed, and awaits t.Start() to be called.
-            Task<object> t = new Task<object>(() =>
-            {
-                return ret;
-            });
+            var tcs = new TaskCompletionSource<object>();
 
             Guid replyId = Guid.NewGuid();
 
@@ -94,9 +97,10 @@ namespace CloudVeilInstallerUI.IPC
                 if (msg.Id.Equals(replyId))
                 {
                     MessageReceived -= fn;
-                    ret = msg.Data;
-
-                    t.Start();
+                    if(!tcs.TrySetResult(msg.Data))
+                    {
+                        Console.WriteLine("Failed to set TaskCompletionSource.Result");
+                    }
                 }
             };
 
@@ -110,7 +114,7 @@ namespace CloudVeilInstallerUI.IPC
                 Data = null
             });
 
-            return await t;
+            return tcs.Task;
         }
 
         public abstract void PushMessage(Message message);
@@ -272,6 +276,25 @@ namespace CloudVeilInstallerUI.IPC
         NamedPipeServer<Message> server;
 
         public static UpdateIPCServer Default { get; private set; }
+
+        public UpdateIPCServer()
+        {
+            this.server.ClientConnected += Server_ClientConnected;
+            this.server.ClientDisconnected += Server_ClientDisconnected;
+        }
+
+        public event EventHandler ClientConnected;
+        public event EventHandler ClientDisconnected;
+
+        private void Server_ClientConnected(NamedPipeConnection<Message, Message> connection)
+        {
+            ClientConnected?.Invoke(this, new EventArgs());
+        }
+
+        private void Server_ClientDisconnected(NamedPipeConnection<Message, Message> connection)
+        {
+            ClientDisconnected?.Invoke(this, new EventArgs());
+        }
 
         private static PipeSecurity GetSecurityForChannel()
         {

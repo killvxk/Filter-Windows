@@ -30,22 +30,22 @@ namespace CloudVeilInstallerUI
 
         public void Show()
         {
-            server.Call("SetupUI", "Show", new object[] { }).Wait();
+            server.Call("SetupUI", "Show", new object[] { });
         }
 
         public void ShowFinish()
         {
-            server.Call("SetupUI", "ShowFinish", new object[] { }).Wait();
+            server.Call("SetupUI", "ShowFinish", new object[] { });
         }
 
         public void ShowInstall()
         {
-            server.Call("SetupUI", "ShowInstall", new object[] { }).Wait();
+            server.Call("SetupUI", "ShowInstall", new object[] { });
         }
 
         public void ShowWelcome()
         {
-            server.Call("SetupUI", "ShowWelcome", new object[] { }).Wait();
+            server.Call("SetupUI", "ShowWelcome", new object[] { });
         }
     }
 }

@@ -5,6 +5,7 @@ using NamedPipeWrapper;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -42,6 +43,8 @@ namespace CloudVeilInstallerUI
     {
         public static Dispatcher BootstrapperDispatcher { get; private set; }
 
+        private UpdateIPCServer server = null;
+
         protected override void Run()
         {
             string[] args = this.Command.GetCommandLineArgs();
@@ -67,29 +70,40 @@ namespace CloudVeilInstallerUI
 
             ISetupUI setupUi = null;
             InstallerViewModel model = new InstallerViewModel(this);
-            UpdateIPCServer server = null;
 
             if (runIpc)
             {
                 server = new UpdateIPCServer("__CloudVeilUpdaterPipe__");
+                
                 server.MessageReceived += CheckExit;
+                server.ClientConnected += clientConnected;
+                server.ClientDisconnected += clientDisconnected;
 
                 server.RegisterObject("InstallerViewModel", model);
                 server.RegisterObject("SetupUI", setupUi);
                 server.Start();
 
+                BootstrapperDispatcher.ShutdownStarted += (sender, e) =>
+                {
+                    server.PushMessage(new Message()
+                    {
+                        Command = IPC.Command.Exit
+                    });
+                };
+
                 server.MessageReceived += CheckStartCommand; // Wait for the first start command to begin installing.
 
                 setupUi = new IpcWindow(server, model, showPrompts);
+                setupUi.Closed += (sender, e) => BootstrapperDispatcher.InvokeShutdown();
+
                 model.SetSetupUi(setupUi);
 
                 model.PropertyChanged += (sender, e) =>
                 {
-                    server.PushMessage(new Message()
-                    {
-                        Command = IPC.Command.PropertyChanged,
-                        Property = e.PropertyName
-                    });
+                    Type t = model.GetType();
+                    var prop = t.GetProperty(e.PropertyName);
+
+                    server.Set("InstallerViewModel", e.PropertyName, prop.GetValue(model));
                 };
 
                 this.Engine.Detect();
@@ -104,6 +118,7 @@ namespace CloudVeilInstallerUI
 
                 setupUi.Show();
                 Dispatcher.Run();
+                this.Engine.Log(LogLevel.Standard, "Dispatcher Run has completed");
                 this.Engine.Quit(0);
             }
         }
@@ -125,6 +140,41 @@ namespace CloudVeilInstallerUI
         private void CheckExit(NamedPipeConnection<Message, Message> connection, Message message)
         {
             if(message.Command == IPC.Command.Exit)
+            {
+                BootstrapperDispatcher.InvokeShutdown();
+            }
+        }
+
+        private int numClients = 0;
+
+        private void clientConnected(object sender, EventArgs e)
+        {
+            numClients++;
+            Engine.Log(LogLevel.Standard, $"NumClients = {numClients}");
+
+            var objs = server.VariableObjects;
+
+            // Whenever a new client (CloudVeilUpdater) connects, do an initial state synchronization.
+            foreach(KeyValuePair<string, object> kvp in objs)
+            {
+                object o = kvp.Value;
+
+                Type t = o.GetType();
+                PropertyInfo[] props = t.GetProperties();
+
+                foreach(var prop in props)
+                {
+                    server.Set(kvp.Key, prop.Name, prop.GetValue(o));
+                }
+            }
+        }
+
+        private void clientDisconnected(object sender, EventArgs e)
+        {
+            numClients--;
+            Engine.Log(LogLevel.Standard, $"NumClients = {numClients}");
+
+            if(numClients <= 0)
             {
                 BootstrapperDispatcher.InvokeShutdown();
             }

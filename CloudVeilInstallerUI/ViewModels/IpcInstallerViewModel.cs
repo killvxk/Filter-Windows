@@ -30,52 +30,67 @@ namespace CloudVeilInstallerUI.ViewModels
             }
         }
 
-        private TRet get<TRet>(string prop)
-        {
-            Task<object> o = client.Get("InstallerViewModel", prop);
-            o.Wait();
-
-            return (TRet)o.Result;
-        }
-
         private void set<TSettable>(string prop, TSettable val)
         {
             client.Set("InstallerViewModel", prop, val);
         }
 
-        private TRet call<TRet>(string method, params object[] parameters)
+        private void call(string method, params object[] parameters)
         {
-            Task<object> o = client.Call("InstallerViewModel", method, parameters);
-            o.Wait();
-
-            return (TRet)o.Result;
+            client.Call("InstallerViewModel", method, parameters);
         }
 
+        private string welcomeButtonText;
         public string WelcomeButtonText
         {
-            get => get<string>(nameof(WelcomeButtonText));
-            set => set(nameof(WelcomeButtonText), value);
+            get => welcomeButtonText;
+            set
+            {
+                welcomeButtonText = value;
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WelcomeButtonText)));
+            }
         }
 
-        public string WelcomeHeader { get => get<string>(nameof(WelcomeHeader)); set => set(nameof(WelcomeHeader), value); }
-        public string WelcomeText { get => get<string>(nameof(WelcomeText)); set => set(nameof(WelcomeText), value); }
-        public bool ShowPrompts { get => get<bool>(nameof(ShowPrompts)); set => set(nameof(ShowPrompts), value); }
-        public InstallType InstallType { get => get<InstallType>(nameof(InstallType)); set => set(nameof(InstallType), value); }
-        public InstallationState State { get => get<InstallationState>(nameof(State)); set => set(nameof(State), value); }
-        public string Description { get => get<string>(nameof(Description)); set => set(nameof(Description), value); }
-        public bool IsIndeterminate { get => get<bool>(nameof(IsIndeterminate)); set => set(nameof(IsIndeterminate), value); }
-        public int Progress { get => get<int>(nameof(Progress)); set => set(nameof(Progress), value); }
-        public string FinishedHeading { get => get<string>(nameof(FinishedHeading)); set => set(nameof(FinishedHeading), value); }
-        public string FinishedMessage { get => get<string>(nameof(FinishedMessage)); set => set(nameof(FinishedMessage), value); }
-        public string FinishButtonText { get => get<string>(nameof(FinishButtonText)); set => set(nameof(FinishButtonText), value); }
+        private string welcomeHeader;
+        public string WelcomeHeader { get => welcomeHeader; set { welcomeHeader = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WelcomeHeader))); } }
+
+        private string welcomeText;
+        public string WelcomeText { get => welcomeText; set { welcomeText = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WelcomeText))); } }
+
+        private bool showPrompts;
+        public bool ShowPrompts { get => showPrompts; set { showPrompts = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(ShowPrompts))); } }
+
+        private InstallType installType;
+        public InstallType InstallType { get => installType; set { installType = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(InstallType))); } }
+
+        private InstallationState state;
+        public InstallationState State { get => state; set { state = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(State))); } }
+
+        private string description;
+        public string Description { get => description; set { description = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Description))); } }
+
+        private bool isIndeterminate;
+        public bool IsIndeterminate { get => isIndeterminate; set { isIndeterminate = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsIndeterminate))); } }
+
+        private int progress;
+        public int Progress { get => progress; set { progress = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(Progress))); } }
+
+        private string finishedHeading;
+        public string FinishedHeading { get => finishedHeading; set { finishedHeading = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishedHeading))); } }
+
+        private string finishedMessage;
+        public string FinishedMessage { get => finishedMessage; set { finishedMessage = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishedMessage))); } }
+
+        private string finishButtonText;
+        public string FinishButtonText { get => finishButtonText; set { finishButtonText = value; PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(FinishButtonText))); } }
 
         public event PropertyChangedEventHandler PropertyChanged;
 
-        public void TriggerDetect() => call<object>("TriggerDetect");
-        public void TriggerFailed(string message, string heading = null) => call<object>("TriggerFailed", message, heading);
-        public void TriggerFinished() => call<object>("TriggerFinished");
-        public void TriggerInstall() => call<object>("TriggerInstall");
-        public void TriggerWelcome() => call<object>("TriggerWelcome");
-        public void Exit() => call<object>("Exit");
+        public void TriggerDetect() => Task.Run(() => call("TriggerDetect"));
+        public void TriggerFailed(string message, string heading = null) => Task.Run(() => call("TriggerFailed", message, heading));
+        public void TriggerFinished() => Task.Run(() => call("TriggerFinished"));
+        public void TriggerInstall() => Task.Run(() => call("TriggerInstall"));
+        public void TriggerWelcome() => Task.Run(() => call("TriggerWelcome"));
+        public void Exit() => call("Exit");
     }
 }

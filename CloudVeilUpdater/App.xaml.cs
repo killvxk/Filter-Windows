@@ -7,6 +7,7 @@ using System.Configuration;
 using System.Data;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows;
 
@@ -20,6 +21,9 @@ namespace CloudVeilUpdater
         protected override void OnStartup(StartupEventArgs e)
         {
             UpdateIPCClient client = new UpdateIPCClient("__CloudVeilUpdaterPipe__");
+            Thread.CurrentThread.Name = "MainThread";
+
+            Console.WriteLine("OnStartup Thread Id = {0}", Thread.CurrentThread.ManagedThreadId);
 
             RemoteInstallerViewModel model = new RemoteInstallerViewModel(client);
             ISetupUI setupUi = null;
@@ -27,7 +31,7 @@ namespace CloudVeilUpdater
             setupUi = new MainWindow(model, true);
 
             client.RegisterObject("SetupUI", setupUi);
-
+            client.RegisterObject("InstallerViewModel", model);
             client.Start();
 
             Console.WriteLine("Client Waiting for connection");
