@@ -7,6 +7,7 @@
 
 using CitadelService.Services;
 using Filter.Platform.Common.Util;
+using Sentry;
 using System;
 using System.Threading;
 using Topshelf;
@@ -27,6 +28,8 @@ namespace CitadelService
             InstanceMutex = new Mutex(true, string.Format(@"Global\{0}", appVerStr.Replace(" ", "")), out createdNew);
 
             bool exiting = false;
+
+            SentrySdk.Init(CompileSecrets.RavenDsn);
 
             if(createdNew)
             {

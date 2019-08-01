@@ -16,6 +16,7 @@ using Filter.Platform.Common;
 using Filter.Platform.Common.Client;
 using Filter.Platform.Common.Util;
 using NLog;
+using Sentry;
 using System;
 using System.Diagnostics;
 using System.Linq;
@@ -183,6 +184,9 @@ namespace CloudVeil.Windows
             }
             catch { }
 
+
+            var sentry = SentrySdk.Init(CompileSecrets.RavenDsn);
+
             try
             {
                 var app = new CitadelApp();
@@ -198,6 +202,8 @@ namespace CloudVeil.Windows
                 {
                     MainLogger = LoggerUtil.GetAppWideLogger();
                     LoggerUtil.RecursivelyLogException(MainLogger, e);
+
+                    SentrySdk.CaptureException(e);
                 }
                 catch(Exception be)
                 {
@@ -205,6 +211,7 @@ namespace CloudVeil.Windows
                 }
             }
 
+            sentry.Dispose();
             // No matter what, always ensure that critical flags are removed from our process before exiting.
             CriticalKernelProcessUtility.SetMyProcessAsNonKernelCritical();
         }
